@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { load, type CheerioAPI } from 'cheerio';
 
+const SERVER = 'Bahamut';
+
 const BASE_URL = 'https://www.ffxiah.com/item';
 
 type RateLabel = 'Dead Slow' | 'Very Slow' | 'Slow' | 'Average' | 'Fast' | 'Very Fast';
@@ -23,7 +25,6 @@ interface ServerMedian {
 }
 
 type ParsedItem = {
-    server: string;
     name: string;
     itemId: number;
     median: number | null;
@@ -33,7 +34,7 @@ type ParsedItem = {
     stackRate: RateLabel | null;
 };
 
-const parsePage = (html: string, server: string) => {
+const parsePage = (html: string) => {
     const $ = load(html);
 
     // Pull server_medians out of the embedded Item.* script block
@@ -51,9 +52,8 @@ const parsePage = (html: string, server: string) => {
         }
     });
 
-    const median = serverMedians.find((s) => s.server_name === server)?.median ?? null;
+    const median = serverMedians.find((s) => s.server_name === SERVER)?.median ?? null;
 
-    // Rate: numeric value is in span.sales-rate (row is CSS-hidden but Cheerio reads it)
     const rate = getSalesRate($);
 
     // Stack size: appears as "x99" text inside .item-name on the stack page
@@ -74,9 +74,9 @@ const fetchHtml = async (url: string): Promise<string> => {
     return res.data;
 };
 
-export const parseItem = async (itemId: number, server: string): Promise<ParsedItem> => {
+export const parseItem = async (itemId: number): Promise<ParsedItem> => {
     const singleHtml = await fetchHtml(`${BASE_URL}/${itemId}`);
-    const single = parsePage(singleHtml, server);
+    const single = parsePage(singleHtml);
 
     let stackMedian: number | null = null;
     let stackSize: number | null = null;
@@ -84,14 +84,13 @@ export const parseItem = async (itemId: number, server: string): Promise<ParsedI
 
     if (single.hasStackLink) {
         const stackHtml = await fetchHtml(`${BASE_URL}/${itemId}/?stack=1`);
-        const stack = parsePage(stackHtml, server);
+        const stack = parsePage(stackHtml);
         stackMedian = stack.median;
         stackSize = stack.stackSize;
         stackRate = stack.rate;
     }
 
     return {
-        server,
         name: single.itemNameText,
         itemId,
         median: single.median,
