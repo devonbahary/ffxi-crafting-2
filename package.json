@@ -8,6 +8,7 @@
   "workspaces": ["packages/*"],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint packages",
     "lint:fix": "eslint packages --fix",
     "format": "prettier --write \"packages/**/*.{ts,js,json}\"",
