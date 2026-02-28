@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /home/devon/dev/ffxi-crafting -type f -name \".*\" 2>/dev/null | head -20)",
+      "Bash(git -C /home/devon/dev/ffxi-crafting log --oneline -10)",
+      "Bash(git -C /home/devon/dev/ffxi-crafting remote -v)",
+      "Bash(git -C /home/devon/dev/ffxi-crafting status)",
+      "Bash(tree -aL 3 /home/devon/dev/ffxi-crafting 2>/dev/null || find /home/devon/dev/ffxi-crafting -not -path '*/.git/*' | sort)"
+    ]
+  }
+}

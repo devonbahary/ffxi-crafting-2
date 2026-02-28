@@ -1,0 +1,23 @@
+{
+  "name": "ffxi-crafting",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint packages",
+    "lint:fix": "eslint packages --fix",
+    "format": "prettier --write \"packages/**/*.{ts,js,json}\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,js,json}\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}
