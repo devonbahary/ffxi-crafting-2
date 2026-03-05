@@ -29,6 +29,7 @@ const getOrUpsertItemId = async (href: string, name: string): Promise<number> =>
 };
 
 for (const synthesis of syntheses) {
+    console.log(`Upserting synthesis data for ${synthesis.mainCraft.name} ${synthesis.mainCraft.level} - ${synthesis.yields[0].name}`)
     // transform synthesis items (yields + ingredients) into item references in the database
     const ingredients = await Promise.all(
         synthesis.ingredients.map(async (i) => ({
