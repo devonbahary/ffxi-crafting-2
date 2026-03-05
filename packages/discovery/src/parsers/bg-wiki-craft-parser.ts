@@ -1,6 +1,7 @@
 import axios from 'axios';
-import { load, type CheerioAPI } from 'cheerio';
+import { Cheerio, load, type CheerioAPI } from 'cheerio';
 import type { Element } from 'domhandler';
+import type { Tier } from '@ffxi-crafting/db';
 
 const BASE_URL = 'https://bg-wiki.com/ffxi';
 
@@ -15,6 +16,13 @@ const CRAFTS = [
     'Woodworking',
 ] as const;
 
+// bg-wiki occasionally uses alternate names for crafts; map them to canonical values
+const CRAFT_ALIASES: Record<string, string> = {
+    Blacksmithing: 'Smithing',
+};
+
+const normalizeCraftName = (name: string): string => CRAFT_ALIASES[name] ?? name;
+
 const RANK_PATTERN =
     /Amateur|Recruit|Initiate|Novice|Apprentice|Journeyman|Craftsman|Artisan|Adept|Veteran|Expert|Authority/;
 
@@ -24,8 +32,6 @@ const fetchHtml = async (url: string): Promise<string> => {
     });
     return res.data;
 };
-
-type Tier = 'NQ' | 'HQ1' | 'HQ2' | 'HQ3';
 
 type YieldItem = {
     tier: Tier;
@@ -45,9 +51,8 @@ type Ingredient = {
     quantity: number;
 };
 
-type Recipe = {
+type Synthesis = {
     yields: YieldItem[];
-    crystal: { name: string; href: string };
     mainCraft: Skill;
     subCrafts: Skill[];
     ingredients: Ingredient[];
@@ -58,10 +63,7 @@ const parseQty = (text: string): number => {
     return m ? parseInt(m[1], 10) : 1;
 };
 
-const parseRecipeRow = ($: CheerioAPI, row: Element): Recipe | null => {
-    const tds = $(row).find('td');
-    if (tds.length < 3) return null;
-
+const parseYields = ($: CheerioAPI, tds: Cheerio<Element>): YieldItem[] => {
     // Yields: NQ in the bold div, HQs in the blockquote
     const yields: YieldItem[] = [];
     $(tds[0])
@@ -77,6 +79,18 @@ const parseRecipeRow = ($: CheerioAPI, row: Element): Recipe | null => {
             if (!href || !name) return;
             yields.push({ tier, name, href, quantity: parseQty(text) });
         });
+    return yields;
+};
+
+const parseSynthesisRow = ($: CheerioAPI, row: Element): Synthesis | null => {
+    const tds = $(row).find('td');
+    if (tds.length < 3) return null;
+
+    const yields = parseYields($, tds);
+    if (yields.length === 0) {
+        console.warn(`Could not determine yields for synthesis row ${row}`);
+        return null;
+    }
 
     // Crystal: the linked image at the top of the requirements cell
     const crystalLink = $(tds[1]).find('a[href]').first();
@@ -89,13 +103,16 @@ const parseRecipeRow = ($: CheerioAPI, row: Element): Recipe | null => {
 
     const mainMatch = pText.match(/Main Craft:\s*(.+?)\s*-\s*\((\d+)/);
     if (!mainMatch) return null;
-    const mainCraft: Skill = { name: mainMatch[1].trim(), level: parseInt(mainMatch[2], 10) };
+    const mainCraft: Skill = {
+        name: normalizeCraftName(mainMatch[1].trim()),
+        level: parseInt(mainMatch[2], 10),
+    };
 
     const subCrafts: Skill[] = [];
     const subSection = pText.split('Sub Craft(s):')[1];
     if (subSection) {
         for (const m of subSection.matchAll(/([A-Za-z]+)\s*-\s*\((\d+)/g)) {
-            subCrafts.push({ name: m[1].trim(), level: parseInt(m[2], 10) });
+            subCrafts.push({ name: normalizeCraftName(m[1].trim()), level: parseInt(m[2], 10) });
         }
     }
 
@@ -111,39 +128,43 @@ const parseRecipeRow = ($: CheerioAPI, row: Element): Recipe | null => {
             ingredients.push({ name, href, quantity: parseQty($(li).text().trim()) });
         });
 
-    if (yields.length === 0 || ingredients.length === 0) return null;
+    if (ingredients.length === 0) {
+        console.warn(`Could not determine ingredients for synthesis row ${row}`);
+        return null;
+    }
 
     return {
         yields,
-        crystal: { name: crystalName, href: crystalHref },
         mainCraft,
         subCrafts,
-        ingredients,
+        ingredients: [{ name: crystalName, href: crystalHref, quantity: 1 }, ...ingredients],
     };
 };
 
-export type { Recipe };
-
-export const parseBgWikiCrafts = async (): Promise<Recipe[]> => {
-    const recipes: Recipe[] = [];
+export const extractSyntheses = async (): Promise<Synthesis[]> => {
+    const syntheses: Synthesis[] = [];
 
     for (const craft of CRAFTS) {
-        console.log(` Parsing ${craft}...`);
-        const html = await fetchHtml(`${BASE_URL}/${craft}`);
-        const $ = load(html);
+        console.log(` Extracting ${craft} syntheses...`);
 
-        $('h2').each((_, h2) => {
-            if (!RANK_PATTERN.test($(h2).text())) return;
+        const bgWikiCraftPage = await fetchHtml(`${BASE_URL}/${craft}`);
+        const $bgWikiCraftDocument = load(bgWikiCraftPage);
 
-            $(h2)
+        $bgWikiCraftDocument('h2').each((_, h2) => {
+            const headingText = $bgWikiCraftDocument(h2).text();
+            const rankMatch = headingText.match(RANK_PATTERN);
+            if (!rankMatch) return;
+            console.log(`   Found rank heading: ${rankMatch[0]}`);
+
+            $bgWikiCraftDocument(h2)
                 .next('table')
                 .find('tr')
                 .each((_, row) => {
-                    const recipe = parseRecipeRow($, row);
-                    if (recipe) recipes.push(recipe);
+                    const synthesis = parseSynthesisRow($bgWikiCraftDocument, row);
+                    if (synthesis) syntheses.push(synthesis);
                 });
         });
     }
 
-    return recipes;
+    return syntheses;
 };

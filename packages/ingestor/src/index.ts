@@ -18,9 +18,9 @@ await boss.work<ItemPageJob>('item.page.requested', async ([job]) => {
         }
 
         const { itemId, stackSize, vendors } = parsed;
-        console.log(`  itemId=${itemId} stackSize=${stackSize} vendors=${vendors.length}`);
+        console.log(`    itemId=${itemId} stackSize=${stackSize} vendors=${vendors.length}`);
 
-        await upsertItem({ itemId, name: itemName, stackSize });
+        await upsertItem({ href, itemId, name: itemName, stackSize });
 
         for (const vendor of vendors) {
             await upsertVendorPrice({ itemId, ...vendor });
