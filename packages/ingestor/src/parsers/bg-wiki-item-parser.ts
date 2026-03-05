@@ -96,8 +96,8 @@ const extractItemIdFromFFXIAH = async (ffxiahHref: string): Promise<number | nul
     return parseItemIdFromRedirect(res) || parseItemIdFromSearchResults(ffxiahHref, res);
 };
 
-const extractItemId = async (href: string, $bgWikiDoc: CheerioAPI): Promise<number> => {
-    const { ffxiahHref, ffxidbHref } = getExternalLinks($bgWikiDoc);
+const extractItemId = async (href: string, $: CheerioAPI): Promise<number> => {
+    const { ffxiahHref, ffxidbHref } = getExternalLinks($);
 
     const itemId = parseItemIdFromExternalLinks(ffxiahHref, ffxidbHref);
     if (itemId) return itemId;
@@ -137,22 +137,22 @@ export const parsePriceFromNotes = (notesText: string): number | null => {
     return parseInt(priceMatch[1].replace(/,/g, ''), 10);
 };
 
-const parseVendors = ($bgWikiDoc: CheerioAPI): ParsedItem['vendors'] => {
+const parseVendors = ($: CheerioAPI): ParsedItem['vendors'] => {
     // Vendor prices: table with "NPC Name" header
-    const vendorTable = $bgWikiDoc('th')
-        .filter((_, el) => $bgWikiDoc(el).text().trim() === 'NPC Name')
+    const vendorTable = $('th')
+        .filter((_, el) => $(el).text().trim() === 'NPC Name')
         .closest('table');
 
     const vendors: ParsedItem['vendors'] = [];
 
     vendorTable
         .find('tr')
-        .filter((_, row) => $bgWikiDoc(row).find('td').length > 0)
+        .filter((_, row) => $(row).find('td').length > 0)
         .each((_, row) => {
-            const tds = $bgWikiDoc(row).find('td');
-            const vendorName = $bgWikiDoc(tds[0]).text().trim();
-            const zoneText = $bgWikiDoc(tds[1]).text().trim();
-            const notesText = $bgWikiDoc(tds[2]).text().trim();
+            const tds = $(row).find('td');
+            const vendorName = $(tds[0]).text().trim();
+            const zoneText = $(tds[1]).text().trim();
+            const notesText = $(tds[2]).text().trim();
 
             if (!vendorName) {
                 console.log(`  No vendor name found for row ${row}`);
@@ -185,11 +185,11 @@ const parseVendors = ($bgWikiDoc: CheerioAPI): ParsedItem['vendors'] => {
 
 export const extractItem = async (href: string): Promise<ParsedItem> => {
     const bgWikiHtml = await fetchHtml(`${BG_WIKI_URL}/${href}`);
-    const $bgWikiDoc = load(bgWikiHtml);
+    const $ = load(bgWikiHtml);
 
-    const itemId = await extractItemId(href, $bgWikiDoc);
-    const stackSize = parseStackSize($bgWikiDoc);
-    const vendors = parseVendors($bgWikiDoc);
+    const itemId = await extractItemId(href, $);
+    const stackSize = parseStackSize($);
+    const vendors = parseVendors($);
 
     return { itemId, stackSize, vendors };
 };
