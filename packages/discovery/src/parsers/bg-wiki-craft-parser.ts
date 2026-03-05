@@ -18,7 +18,7 @@ const CRAFTS = [
 
 // bg-wiki occasionally uses alternate names for crafts; map them to canonical values
 const CRAFT_ALIASES: Record<string, string> = {
-    Blacksmithing: 'Smithing',
+    Blacksmithing: 'Smithing', // e.g., Thug's Jambiya lists "Blacksmithing - (42)" as a sub craft
 };
 
 const normalizeCraftName = (name: string): string => CRAFT_ALIASES[name] ?? name;
