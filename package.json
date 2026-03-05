@@ -16,7 +16,8 @@
     "format": "prettier --write \"packages/**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"packages/**/*.{ts,js,json}\"",
     "prepare": "husky",
-    "queue:clear": "docker compose exec db psql -U ${POSTGRES_USER:-ffxi} ${POSTGRES_DB:-ffxi_crafting} -c \"DELETE FROM pgboss.job;\""
+    "queue:clear": "docker compose exec db psql -U ${POSTGRES_USER:-ffxi} ${POSTGRES_DB:-ffxi_crafting} -c \"DELETE FROM pgboss.job;\"",
+    "db:reset": "docker compose exec db psql -U ${POSTGRES_USER:-ffxi} postgres -c \"DROP DATABASE IF EXISTS ${POSTGRES_DB:-ffxi_crafting};\" && docker compose exec db psql -U ${POSTGRES_USER:-ffxi} postgres -c \"CREATE DATABASE ${POSTGRES_DB:-ffxi_crafting};\" && npm run db:push --workspace=packages/db"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
