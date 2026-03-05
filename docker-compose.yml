@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ffxi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ffxi}
+      POSTGRES_DB: ${POSTGRES_DB:-ffxi_crafting}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  discovery:
+    build:
+      context: .
+      dockerfile: Dockerfile.discovery
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-ffxi}:${POSTGRES_PASSWORD:-ffxi}@db:5432/${POSTGRES_DB:-ffxi_crafting}
+    develop:
+      watch:
+        - path: packages/discovery/src
+          action: rebuild
+        - path: packages/db/src
+          action: rebuild
+        - path: packages/types/src
+          action: rebuild
+
+  ingestor:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestor
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-ffxi}:${POSTGRES_PASSWORD:-ffxi}@db:5432/${POSTGRES_DB:-ffxi_crafting}
+    develop:
+      watch:
+        - path: packages/ingestor/src
+          action: rebuild
+        - path: packages/db/src
+          action: rebuild
+        - path: packages/types/src
+          action: rebuild
+
+  adminer:
+    image: adminer
+    profiles: [tools]
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:

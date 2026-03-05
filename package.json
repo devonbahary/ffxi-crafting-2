@@ -9,13 +9,14 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run build --workspace=packages/types && npm run typecheck --workspaces --if-present",
     "lint": "eslint packages",
     "lint:fix": "eslint packages --fix",
     "format": "prettier --write \"packages/**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"packages/**/*.{ts,js,json}\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "queue:clear": "docker compose exec db psql -U ${POSTGRES_USER:-ffxi} ${POSTGRES_DB:-ffxi_crafting} -c \"DELETE FROM pgboss.job;\""
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

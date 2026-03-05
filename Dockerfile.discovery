@@ -1,0 +1,36 @@
+FROM node:22-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY packages/discovery/package.json ./packages/discovery/
+COPY packages/types/package.json ./packages/types/
+COPY packages/db/package.json ./packages/db/
+
+RUN npm ci
+
+COPY packages/types/tsconfig.json ./packages/types/
+COPY packages/types/src ./packages/types/src
+COPY packages/db/tsconfig.json ./packages/db/
+COPY packages/db/src ./packages/db/src
+COPY packages/discovery/tsconfig.json ./packages/discovery/
+COPY packages/discovery/src ./packages/discovery/src
+
+RUN npm run build --workspace=packages/types
+RUN npm run build --workspace=packages/db
+RUN npm run build --workspace=packages/discovery
+
+FROM node:22-alpine AS runtime
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY packages/discovery/package.json ./packages/discovery/
+COPY packages/types/package.json ./packages/types/
+COPY packages/db/package.json ./packages/db/
+
+RUN npm ci --omit=dev --ignore-scripts
+
+COPY --from=build /app/packages/types/dist ./packages/types/dist
+COPY --from=build /app/packages/db/dist ./packages/db/dist
+COPY --from=build /app/packages/discovery/dist ./packages/discovery/dist
+
+CMD ["node", "packages/discovery/dist/index.js"]

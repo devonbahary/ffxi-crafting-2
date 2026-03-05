@@ -1,0 +1,28 @@
+{
+    "name": "@ffxi-crafting/db",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "typecheck": "tsc",
+        "db:push": "drizzle-kit push",
+        "db:generate": "drizzle-kit generate"
+    },
+    "dependencies": {
+        "drizzle-orm": "^0.38.0",
+        "pg-boss": "^10.0.0",
+        "postgres": "^3.4.0"
+    },
+    "devDependencies": {
+        "drizzle-kit": "^0.30.0",
+        "typescript": "^5.0.0",
+        "@types/node": "^22.0.0"
+    }
+}
