@@ -9,7 +9,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=packages/api & npm run dev --workspace=packages/client -- --open",
+    "web": "npm run dev --workspace=packages/api & npm run dev --workspace=packages/client -- --open",
+    "discovery": "npm run dev --workspace=packages/discovery",
+    "ingestor": "npm run dev --workspace=packages/ingestor",
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run build --workspace=packages/types && npm run typecheck --workspaces --if-present",
     "lint": "eslint packages",
