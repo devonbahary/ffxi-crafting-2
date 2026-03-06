@@ -20,10 +20,10 @@ await boss.work<ItemPageJob>('item.page.requested', async ([job]) => {
         const { itemId, stackSize, vendors } = parsed;
         console.log(`    itemId=${itemId} stackSize=${stackSize} vendors=${vendors.length}`);
 
-        await upsertItem({ href, itemId, name: itemName, stackSize });
+        const id = await upsertItem({ href, itemId, name: itemName, stackSize });
 
         for (const vendor of vendors) {
-            await upsertVendorPrice({ itemId, ...vendor });
+            await upsertVendorPrice({ itemId: id, ...vendor });
         }
     } catch (err) {
         console.error(`  Error parsing item page for ${href}:`, err);

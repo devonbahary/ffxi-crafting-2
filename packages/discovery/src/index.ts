@@ -1,4 +1,5 @@
-import { boss, closeDb, upsertItemStub, upsertSynthesis, type Craft } from '@ffxi-crafting/db';
+import { boss, closeDb, upsertItemStub, upsertSynthesis } from '@ffxi-crafting/db';
+import type { Craft } from '@ffxi-crafting/types';
 import type { ItemPageJob } from '@ffxi-crafting/types';
 import { extractSyntheses } from './parsers/bg-wiki-craft-parser.js';
 
@@ -29,7 +30,12 @@ const getOrUpsertItemId = async (href: string, name: string): Promise<number> =>
 };
 
 for (const synthesis of syntheses) {
-    console.log(`Upserting synthesis data for ${synthesis.mainCraft.name} ${synthesis.mainCraft.level} - ${synthesis.yields[0].name}`)
+    const { mainCraft } = synthesis;
+
+    console.log(
+        `Upserting synthesis data for ${mainCraft.name} ${mainCraft.level} - ${synthesis.yields[0].name}`,
+    );
+
     // transform synthesis items (yields + ingredients) into item references in the database
     const ingredients = await Promise.all(
         synthesis.ingredients.map(async (i) => ({

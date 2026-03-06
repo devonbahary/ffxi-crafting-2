@@ -11,17 +11,9 @@ import {
     varchar,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import { CRAFTS } from '@ffxi-crafting/types';
 
-export const craftEnum = pgEnum('craft', [
-    'Alchemy',
-    'Bonecraft',
-    'Clothcraft',
-    'Cooking',
-    'Goldsmithing',
-    'Leathercraft',
-    'Smithing',
-    'Woodworking',
-]);
+export const craftEnum = pgEnum('craft', CRAFTS);
 
 export const tierEnum = pgEnum('tier', ['NQ', 'HQ1', 'HQ2', 'HQ3']);
 
@@ -52,7 +44,7 @@ export const vendorPrices = pgTable(
     'vendor_prices',
     {
         itemId: integer('item_id')
-            .references(() => items.itemId)
+            .references(() => items.id)
             .notNull(),
         price: integer('price').notNull(),
         vendorName: varchar('vendor_name', { length: 128 }).notNull(),

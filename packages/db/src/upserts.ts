@@ -1,7 +1,6 @@
 import { sql, type InferInsertModel } from 'drizzle-orm';
 import { db } from './index.js';
 import {
-    craftEnum,
     tierEnum,
     items,
     vendorPrices,
@@ -10,11 +9,9 @@ import {
     synthesisYields,
     synthesisIngredients,
 } from './schema.js';
+import type { CraftRequirement } from '@ffxi-crafting/types';
 
-export type Craft = (typeof craftEnum.enumValues)[number];
 export type Tier = (typeof tierEnum.enumValues)[number];
-
-export type VendorPriceInsert = InferInsertModel<typeof vendorPrices>;
 
 export type SynthesisCraftInsert = InferInsertModel<typeof synthesisCrafts>;
 
@@ -46,8 +43,8 @@ export const upsertItem = async ({
     itemId: number;
     name: string;
     stackSize?: number | null;
-}): Promise<void> => {
-    await db
+}): Promise<number> => {
+    const [row] = await db
         .insert(items)
         .values({ href, itemId, name, stackSize })
         .onConflictDoUpdate({
@@ -57,10 +54,18 @@ export const upsertItem = async ({
                 name: sql`excluded.name`,
                 stackSize: sql`excluded.stack_size`,
             },
-        });
+        })
+        .returning({ id: items.id });
+    return row.id;
 };
 
-export const upsertVendorPrice = async (vendor: VendorPriceInsert): Promise<void> => {
+export const upsertVendorPrice = async (vendor: {
+    itemId: number;
+    price: number;
+    vendorName: string;
+    vendorZone?: string | null;
+    vendorLocation?: string | null;
+}): Promise<void> => {
     await db
         .insert(vendorPrices)
         .values(vendor)
@@ -74,18 +79,16 @@ export const upsertVendorPrice = async (vendor: VendorPriceInsert): Promise<void
         });
 };
 
-type SynthesisCraftInput = Pick<SynthesisCraftInsert, 'craft' | 'craftLevel'>;
-
 type SynthesisInput = {
-    mainCraft: SynthesisCraftInput;
-    subCrafts: SynthesisCraftInput[];
+    mainCraft: CraftRequirement;
+    subCrafts: CraftRequirement[];
     yields: { itemId: number; tier: Tier; quantity: number }[];
     ingredients: { itemId: number; quantity: number }[];
 };
 
 // bg-wiki has no stable per-synthesis IDs, so we compute uniqueness
 const buildFingerprint = (
-    mainCraft: SynthesisCraftInput,
+    mainCraft: CraftRequirement,
     ingredients: { itemId: number; quantity: number }[],
 ): string => {
     // sort so that the order arbitrarily passed in doesn't result in a different fingerprint

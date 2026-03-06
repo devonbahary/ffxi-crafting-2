@@ -7,14 +7,12 @@
         "rootDir": "src",
         "strict": true,
         "esModuleInterop": true,
-        "composite": true,
-        "declaration": true,
-        "declarationMap": true,
         "skipLibCheck": true,
         "paths": {
+            "@ffxi-crafting/db": ["../db/src/index.ts"],
             "@ffxi-crafting/types": ["../types/src/index.ts"]
         }
     },
     "include": ["src"],
-    "references": [{ "path": "../types" }]
+    "references": [{ "path": "../db" }, { "path": "../types" }]
 }
