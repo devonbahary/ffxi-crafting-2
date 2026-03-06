@@ -3,6 +3,7 @@ import { db } from './index.js';
 import {
     tierEnum,
     items,
+    itemAuctionPrices,
     vendorPrices,
     syntheses,
     synthesisCrafts,
@@ -60,6 +61,22 @@ export const upsertItem = async ({
         })
         .returning({ id: items.id });
     return row.id;
+};
+
+export const insertAuctionPrice = async ({
+    itemId,
+    price,
+    rate,
+    stackPrice,
+    stackRate,
+}: {
+    itemId: number;
+    price?: number | null;
+    rate?: string | null;
+    stackPrice?: number | null;
+    stackRate?: string | null;
+}): Promise<void> => {
+    await db.insert(itemAuctionPrices).values({ itemId, price, rate, stackPrice, stackRate });
 };
 
 export const upsertVendorPrice = async (vendor: {

@@ -1,6 +1,7 @@
 import {
     boolean,
     check,
+    index,
     integer,
     pgEnum,
     pgTable,
@@ -30,16 +31,21 @@ export const items = pgTable(
     (t) => [check('stack_size_valid', sql`${t.stackSize} IN (1, 12, 99)`)],
 );
 
-export const auctionPrices = pgTable('auction_prices', {
-    itemId: integer('item_id')
-        .references(() => items.itemId)
-        .primaryKey(),
-    price: integer('price'),
-    rate: varchar('rate', { length: 16 }),
-    stackPrice: integer('stack_price'),
-    stackRate: varchar('stack_rate', { length: 16 }),
-    updatedAt: timestamp('updated_at').defaultNow(),
-});
+export const itemAuctionPrices = pgTable(
+    'item_auction_prices',
+    {
+        id: serial('id').primaryKey(),
+        itemId: integer('item_id')
+            .references(() => items.id)
+            .notNull(),
+        price: integer('price'),
+        rate: varchar('rate', { length: 16 }),
+        stackPrice: integer('stack_price'),
+        stackRate: varchar('stack_rate', { length: 16 }),
+        createdAt: timestamp('created_at').notNull().defaultNow(),
+    },
+    (t) => [index('item_auction_prices_item_id_created_at_idx').on(t.itemId, t.createdAt)],
+);
 
 export const vendorPrices = pgTable(
     'vendor_prices',
