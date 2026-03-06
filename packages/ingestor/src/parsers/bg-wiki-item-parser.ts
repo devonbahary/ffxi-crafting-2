@@ -4,6 +4,7 @@ import { CheerioAPI, load } from 'cheerio';
 export type ParsedItem = {
     itemId: number;
     stackSize: number;
+    isExclusive: boolean;
     vendors: {
         vendorName: string;
         vendorZone: string | null;
@@ -183,13 +184,39 @@ const parseVendors = ($: CheerioAPI): ParsedItem['vendors'] => {
     return vendors;
 };
 
+const parseFlags = ($: CheerioAPI): string[] => {
+    let flags: string[] = [];
+
+    $('tr').each((_, row) => {
+        const cells = $(row).find('td, th');
+        if (cells.length < 2) return;
+        const label = $(cells[0]).text().trim().toLowerCase().replace(/:$/, '');
+        if (label !== 'flags') return;
+
+        flags = $(cells[1])
+            .text()
+            .split(',')
+            .map((f) => f.trim());
+
+        return false;
+    });
+
+    return flags;
+};
+
+const parseIsExclusive = ($: CheerioAPI): boolean => {
+    const flags = parseFlags($);
+    return flags.some((f) => f.toLowerCase() === 'exclusive');
+};
+
 export const extractItem = async (href: string): Promise<ParsedItem> => {
     const bgWikiHtml = await fetchHtml(`${BG_WIKI_URL}/${href}`);
     const $ = load(bgWikiHtml);
 
     const itemId = await extractItemId(href, $);
     const stackSize = parseStackSize($);
+    const isExclusive = parseIsExclusive($);
     const vendors = parseVendors($);
 
-    return { itemId, stackSize, vendors };
+    return { itemId, stackSize, isExclusive, vendors };
 };

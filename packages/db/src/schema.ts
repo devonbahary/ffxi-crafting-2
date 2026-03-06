@@ -25,6 +25,7 @@ export const items = pgTable(
         itemId: integer('item_id').unique(),
         name: varchar('name', { length: 128 }).notNull(),
         stackSize: integer('stack_size').default(1),
+        isExclusive: boolean('is_exclusive').notNull().default(false),
     },
     (t) => [check('stack_size_valid', sql`${t.stackSize} IN (1, 12, 99)`)],
 );

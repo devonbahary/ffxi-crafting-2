@@ -17,10 +17,12 @@ await boss.work<ItemPageJob>('item.page.requested', async ([job]) => {
             return;
         }
 
-        const { itemId, stackSize, vendors } = parsed;
-        console.log(`    itemId=${itemId} stackSize=${stackSize} vendors=${vendors.length}`);
+        const { itemId, stackSize, isExclusive, vendors } = parsed;
+        console.log(
+            `    itemId=${itemId} stackSize=${stackSize}${isExclusive ? ' Ex' : ''} vendors=${vendors.length}`,
+        );
 
-        const id = await upsertItem({ href, itemId, name: itemName, stackSize });
+        const id = await upsertItem({ href, itemId, name: itemName, stackSize, isExclusive });
 
         for (const vendor of vendors) {
             await upsertVendorPrice({ itemId: id, ...vendor });

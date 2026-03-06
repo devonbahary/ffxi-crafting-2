@@ -38,21 +38,24 @@ export const upsertItem = async ({
     itemId,
     name,
     stackSize,
+    isExclusive,
 }: {
     href: string;
     itemId: number;
     name: string;
     stackSize?: number | null;
+    isExclusive?: boolean;
 }): Promise<number> => {
     const [row] = await db
         .insert(items)
-        .values({ href, itemId, name, stackSize })
+        .values({ href, itemId, name, stackSize, isExclusive })
         .onConflictDoUpdate({
             target: items.href,
             set: {
                 itemId: sql`excluded.item_id`,
                 name: sql`excluded.name`,
                 stackSize: sql`excluded.stack_size`,
+                isExclusive: sql`excluded.is_exclusive`,
             },
         })
         .returning({ id: items.id });
