@@ -1,4 +1,4 @@
-export type ItemPageJob = {
+export type EnrichJob = {
     href: string; // e.g. "/ffxi/Distilled_Water"
     itemName: string;
 };

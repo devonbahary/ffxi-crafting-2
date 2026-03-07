@@ -1,12 +1,12 @@
 import { boss, closeDb, upsertItemStub, upsertSynthesis } from '@ffxi-crafting/db';
 import type { Craft } from '@ffxi-crafting/types';
-import type { ItemPageJob } from '@ffxi-crafting/types';
+import type { EnrichJob } from '@ffxi-crafting/types';
 import { extractSyntheses } from './parsers/bg-wiki-craft-parser.js';
 
 console.log('Starting discovery...');
 
 await boss.start();
-await boss.createQueue('item.page.requested');
+await boss.createQueue('item.enrich');
 
 console.log('Parsing syntheses from bg-wiki...');
 const syntheses = await extractSyntheses();
@@ -22,8 +22,8 @@ const getOrUpsertItemId = async (href: string, name: string): Promise<number> =>
 
         if (!seenHrefs.has(href)) {
             seenHrefs.add(href);
-            const payload: ItemPageJob = { href, itemName: name };
-            await boss.send('item.page.requested', payload, { singletonKey: href });
+            const payload: EnrichJob = { href, itemName: name };
+            await boss.send('item.enrich', payload, { singletonKey: href });
         }
     }
     return hrefToId.get(href)!;

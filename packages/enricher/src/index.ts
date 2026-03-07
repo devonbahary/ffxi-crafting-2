@@ -1,12 +1,12 @@
 import { boss, upsertItem, upsertVendorPrice } from '@ffxi-crafting/db';
-import type { ItemPageJob } from '@ffxi-crafting/types';
+import type { EnrichJob } from '@ffxi-crafting/types';
 import { extractItem } from './parsers/bg-wiki-item-parser.js';
 
-console.log('Starting ingestor...');
+console.log('Starting enricher...');
 
 await boss.start();
 
-await boss.work<ItemPageJob>('item.page.requested', async ([job]) => {
+await boss.work<EnrichJob>('item.enrich', async ([job]) => {
     const { href, itemName } = job.data;
     console.log(`Processing item: ${itemName} (${href})`);
 
