@@ -47,8 +47,8 @@ export const itemAuctionPrices = pgTable(
     (t) => [index('item_auction_prices_item_id_created_at_idx').on(t.itemId, t.createdAt)],
 );
 
-export const vendorPrices = pgTable(
-    'vendor_prices',
+export const itemVendorPrices = pgTable(
+    'item_vendor_prices',
     {
         itemId: integer('item_id')
             .references(() => items.id)
@@ -86,8 +86,8 @@ export const synthesisCrafts = pgTable(
     ],
 );
 
-export const synthesisYields = pgTable(
-    'synthesis_yields',
+export const synthesisYieldItems = pgTable(
+    'synthesis_yield_items',
     {
         synthesisId: integer('synthesis_id')
             .references(() => syntheses.id)
@@ -101,8 +101,8 @@ export const synthesisYields = pgTable(
     (t) => [primaryKey({ columns: [t.synthesisId, t.itemId, t.tier] })],
 );
 
-export const synthesisIngredients = pgTable(
-    'synthesis_ingredients',
+export const synthesisIngredientItems = pgTable(
+    'synthesis_ingredient_items',
     {
         synthesisId: integer('synthesis_id')
             .references(() => syntheses.id)

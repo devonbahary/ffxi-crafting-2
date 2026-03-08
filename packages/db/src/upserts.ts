@@ -4,11 +4,11 @@ import {
     tierEnum,
     items,
     itemAuctionPrices,
-    vendorPrices,
+    itemVendorPrices,
     syntheses,
     synthesisCrafts,
-    synthesisYields,
-    synthesisIngredients,
+    synthesisYieldItems,
+    synthesisIngredientItems,
 } from './schema.js';
 import type { CraftRequirement } from '@ffxi-crafting/types';
 
@@ -87,10 +87,10 @@ export const upsertVendorPrice = async (vendor: {
     vendorLocation?: string | null;
 }): Promise<void> => {
     await db
-        .insert(vendorPrices)
+        .insert(itemVendorPrices)
         .values(vendor)
         .onConflictDoUpdate({
-            target: [vendorPrices.itemId, vendorPrices.vendorName],
+            target: [itemVendorPrices.itemId, itemVendorPrices.vendorName],
             set: {
                 price: sql`excluded.price`,
                 vendorZone: sql`excluded.vendor_zone`,
@@ -153,12 +153,12 @@ export const upsertSynthesis = async ({
             .onConflictDoNothing();
 
         await tx
-            .insert(synthesisYields)
+            .insert(synthesisYieldItems)
             .values(yields.map((y) => ({ synthesisId: synthesis.id, ...y })))
             .onConflictDoNothing();
 
         await tx
-            .insert(synthesisIngredients)
+            .insert(synthesisIngredientItems)
             .values(ingredients.map((i) => ({ synthesisId: synthesis.id, ...i })))
             .onConflictDoNothing();
     });

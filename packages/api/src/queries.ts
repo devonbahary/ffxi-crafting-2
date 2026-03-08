@@ -2,10 +2,10 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@ffxi-crafting/db';
 import {
     synthesisCrafts,
-    synthesisYields,
-    synthesisIngredients,
+    synthesisYieldItems,
+    synthesisIngredientItems,
     items,
-    vendorPrices,
+    itemVendorPrices,
 } from '@ffxi-crafting/db';
 import type { Craft, CraftRequirement } from '@ffxi-crafting/types';
 
@@ -70,37 +70,37 @@ export const getSynthesesByCraft = async (craft: Craft): Promise<SynthesisDetail
     // 3. Yields with vendor info
     const yieldRows = await db
         .select({
-            synthesisId: synthesisYields.synthesisId,
-            tier: synthesisYields.tier,
-            quantity: synthesisYields.quantity,
+            synthesisId: synthesisYieldItems.synthesisId,
+            tier: synthesisYieldItems.tier,
+            quantity: synthesisYieldItems.quantity,
             name: items.name,
             itemId: items.id,
-            vendorName: vendorPrices.vendorName,
-            vendorZone: vendorPrices.vendorZone,
-            vendorLocation: vendorPrices.vendorLocation,
-            price: vendorPrices.price,
+            vendorName: itemVendorPrices.vendorName,
+            vendorZone: itemVendorPrices.vendorZone,
+            vendorLocation: itemVendorPrices.vendorLocation,
+            price: itemVendorPrices.price,
         })
-        .from(synthesisYields)
-        .innerJoin(items, eq(synthesisYields.itemId, items.id))
-        .leftJoin(vendorPrices, eq(vendorPrices.itemId, items.id))
-        .where(inArray(synthesisYields.synthesisId, synthesisIds));
+        .from(synthesisYieldItems)
+        .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
+        .leftJoin(itemVendorPrices, eq(itemVendorPrices.itemId, items.id))
+        .where(inArray(synthesisYieldItems.synthesisId, synthesisIds));
 
     // 4. Ingredients with vendor info
     const ingredientRows = await db
         .select({
-            synthesisId: synthesisIngredients.synthesisId,
-            quantity: synthesisIngredients.quantity,
+            synthesisId: synthesisIngredientItems.synthesisId,
+            quantity: synthesisIngredientItems.quantity,
             name: items.name,
             itemId: items.id,
-            vendorName: vendorPrices.vendorName,
-            vendorZone: vendorPrices.vendorZone,
-            vendorLocation: vendorPrices.vendorLocation,
-            price: vendorPrices.price,
+            vendorName: itemVendorPrices.vendorName,
+            vendorZone: itemVendorPrices.vendorZone,
+            vendorLocation: itemVendorPrices.vendorLocation,
+            price: itemVendorPrices.price,
         })
-        .from(synthesisIngredients)
-        .innerJoin(items, eq(synthesisIngredients.itemId, items.id))
-        .leftJoin(vendorPrices, eq(vendorPrices.itemId, items.id))
-        .where(inArray(synthesisIngredients.synthesisId, synthesisIds));
+        .from(synthesisIngredientItems)
+        .innerJoin(items, eq(synthesisIngredientItems.itemId, items.id))
+        .leftJoin(itemVendorPrices, eq(itemVendorPrices.itemId, items.id))
+        .where(inArray(synthesisIngredientItems.synthesisId, synthesisIds));
 
     // Group craft rows by synthesisId
     const craftsBySynthesis = new Map<
