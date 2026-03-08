@@ -36,24 +36,24 @@ export const upsertItemStub = async ({
 
 export const upsertItem = async ({
     href,
-    itemId,
+    ffxiId,
     name,
     stackSize,
     isExclusive,
 }: {
     href: string;
-    itemId: number;
+    ffxiId: number;
     name: string;
     stackSize?: number | null;
     isExclusive?: boolean;
 }): Promise<number> => {
     const [row] = await db
         .insert(items)
-        .values({ href, itemId, name, stackSize, isExclusive })
+        .values({ href, ffxiId, name, stackSize, isExclusive })
         .onConflictDoUpdate({
             target: items.href,
             set: {
-                itemId: sql`excluded.item_id`,
+                ffxiId: sql`excluded.ffxi_id`,
                 name: sql`excluded.name`,
                 stackSize: sql`excluded.stack_size`,
                 isExclusive: sql`excluded.is_exclusive`,

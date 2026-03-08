@@ -2,7 +2,7 @@ import axios, { AxiosResponse } from 'axios';
 import { CheerioAPI, load } from 'cheerio';
 
 export type ParsedItem = {
-    itemId: number;
+    ffxiId: number;
     stackSize: number;
     isExclusive: boolean;
     vendors: {
@@ -73,20 +73,20 @@ const parseItemIdFromSearchResults = (ffxiahHref: string, res: AxiosResponse): n
 
     const $ffxiahSearchResultsDoc = load(res.data);
 
-    let itemId: number | null = null;
+    let ffxiId: number | null = null;
 
     $ffxiahSearchResultsDoc('a.ucwords').each((_, el) => {
-        if (itemId) return;
+        if (ffxiId) return;
         const text = $ffxiahSearchResultsDoc(el).text().trim().toLowerCase();
         if (text === searchName) {
             const match = $ffxiahSearchResultsDoc(el)
                 .attr('href')
                 ?.match(/\/item\/(\d+)/);
-            if (match) itemId = parseInt(match[1], 10);
+            if (match) ffxiId = parseInt(match[1], 10);
         }
     });
 
-    return itemId;
+    return ffxiId;
 };
 
 const extractItemIdFromFFXIAH = async (ffxiahHref: string): Promise<number | null> => {
@@ -97,15 +97,15 @@ const extractItemIdFromFFXIAH = async (ffxiahHref: string): Promise<number | nul
     return parseItemIdFromRedirect(res) || parseItemIdFromSearchResults(ffxiahHref, res);
 };
 
-const extractItemId = async (href: string, $: CheerioAPI): Promise<number> => {
+const extractFFXIId = async (href: string, $: CheerioAPI): Promise<number> => {
     const { ffxiahHref, ffxidbHref } = getExternalLinks($);
 
-    const itemId = parseItemIdFromExternalLinks(ffxiahHref, ffxidbHref);
-    if (itemId) return itemId;
+    const ffxiId = parseItemIdFromExternalLinks(ffxiahHref, ffxidbHref);
+    if (ffxiId) return ffxiId;
 
     if (ffxiahHref) {
         console.log(
-            `  No itemId found directly on page external links, going to follow ${ffxiahHref}`,
+            `  No ffxiId found directly on page external links, going to follow ${ffxiahHref}`,
         );
         const ffxiahItemId = await extractItemIdFromFFXIAH(ffxiahHref);
         if (ffxiahItemId) return ffxiahItemId;
@@ -113,7 +113,7 @@ const extractItemId = async (href: string, $: CheerioAPI): Promise<number> => {
         console.log(`  No ffxiah redirect found for item with href ${href}`);
     }
 
-    throw new Error(`No itemId found for item with href ${href}`);
+    throw new Error(`No ffxiId found for item with href ${href}`);
 };
 
 export const parseStackSize = ($: CheerioAPI): number => {
@@ -213,10 +213,10 @@ export const extractItem = async (href: string): Promise<ParsedItem> => {
     const bgWikiHtml = await fetchHtml(`${BG_WIKI_URL}/${href}`);
     const $ = load(bgWikiHtml);
 
-    const itemId = await extractItemId(href, $);
+    const ffxiId = await extractFFXIId(href, $);
     const stackSize = parseStackSize($);
     const isExclusive = parseIsExclusive($);
     const vendors = parseVendors($);
 
-    return { itemId, stackSize, isExclusive, vendors };
+    return { ffxiId, stackSize, isExclusive, vendors };
 };

@@ -23,7 +23,7 @@ export const items = pgTable(
     {
         id: serial('id').primaryKey(),
         href: varchar('href', { length: 256 }).notNull().unique(),
-        itemId: integer('item_id').unique(),
+        ffxiId: integer('ffxi_id').unique(),
         name: varchar('name', { length: 128 }).notNull(),
         stackSize: integer('stack_size').default(1),
         isExclusive: boolean('is_exclusive').notNull().default(false),

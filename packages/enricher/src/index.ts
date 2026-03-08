@@ -17,12 +17,12 @@ await boss.work<EnrichJob>('item.enrich', async ([job]) => {
             return;
         }
 
-        const { itemId, stackSize, isExclusive, vendors } = parsed;
+        const { ffxiId, stackSize, isExclusive, vendors } = parsed;
         console.log(
-            `    itemId=${itemId} stackSize=${stackSize}${isExclusive ? ' Ex' : ''} vendors=${vendors.length}`,
+            `    ffxiId=${ffxiId} stackSize=${stackSize}${isExclusive ? ' Ex' : ''} vendors=${vendors.length}`,
         );
 
-        const id = await upsertItem({ href, itemId, name: itemName, stackSize, isExclusive });
+        const id = await upsertItem({ href, ffxiId, name: itemName, stackSize, isExclusive });
 
         for (const vendor of vendors) {
             await upsertVendorPrice({ itemId: id, ...vendor });
