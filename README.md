@@ -28,18 +28,6 @@ Push the schema:
 npm run db:push --workspace=packages/db
 ```
 
-Stop the database:
-
-```sh
-docker compose down
-```
-
-To also delete the stored data:
-
-```sh
-docker compose down -v
-```
-
 ### Adminer (database GUI)
 
 ```sh
@@ -48,20 +36,16 @@ docker compose --profile tools up adminer -d
 
 Open `http://localhost:8080` and log in using **System: PostgreSQL**, **Server: `db`**, and the credentials from your `.env` (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`).
 
-## Local development
+## Local
 
-Start the database, then run each service in its own terminal:
+### Seeding
 
-```sh
-docker compose up db -d
-npm run dev --workspace=packages/ingestor
-npm run dev --workspace=packages/discovery
-```
-
-## Running everything in Docker
+This project relies on using relatively static data for synthesis and its constituent items. To seed these directly from the source sites, run:
 
 ```sh
-docker compose up --build
+npm run discovery
+npm run enricher
+
 ```
 
 ## Development
