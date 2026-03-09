@@ -50,13 +50,17 @@ await boss.work<PriceJob>('item-auction-price.update', { batchSize: 5 }, async (
                 );
 
                 if (price === null || salesPerDay === null) {
-                    throw new Error(`Could not find price data for ${name} | itemId=${itemId} ffxiId=${ffxiId}`);
+                    throw new Error(
+                        `Could not find price data for ${name} | itemId=${itemId} ffxiId=${ffxiId}`,
+                    );
                 }
 
                 if (hasStack && (stackPrice === null || stackSalesPerDay === null)) {
                     // some stackable items have so little ffxiah data that there's no elements on the page to grab data from
                     // TODO: how can we flag when we EXPECT to find the data vs. when it's reasonable that an item doesn't have it
-                    console.warn(`Could not find stack price data for ${name} | itemId=${itemId} ffxiId=${ffxiId}`);
+                    console.warn(
+                        `Could not find stack price data for ${name} | itemId=${itemId} ffxiId=${ffxiId}`,
+                    );
                 }
 
                 await insertAuctionPrice({
