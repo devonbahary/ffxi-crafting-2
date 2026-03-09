@@ -1,4 +1,4 @@
-import { boss, upsertItem, upsertVendorPrice } from '@ffxi-crafting/db';
+import { boss, closeDb, upsertItem, upsertVendorPrice } from '@ffxi-crafting/db';
 import type { EnrichJob } from '@ffxi-crafting/types';
 import { extractItem } from './parsers/bg-wiki-item-parser.js';
 
@@ -33,5 +33,10 @@ await boss.work<EnrichJob>('item.enrich', async ([job]) => {
     }
 });
 
-process.on('SIGTERM', () => boss.stop());
-process.on('SIGINT', () => boss.stop());
+const shutdown = async () => {
+    await boss.stop();
+    await closeDb();
+};
+
+process.on('SIGTERM', () => void shutdown());
+process.on('SIGINT', () => void shutdown());
