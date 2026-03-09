@@ -17,6 +17,7 @@ const hrefToId = new Map<string, number>();
 
 const getOrUpsertItemId = async (href: string, name: string): Promise<number> => {
     if (!hrefToId.has(href)) {
+        console.log(`Upserting item stub: ${name}`)
         const id = await upsertItemStub({ href, name });
         hrefToId.set(href, id);
 
@@ -67,7 +68,7 @@ for (const synthesis of syntheses) {
     });
 }
 
-console.log(`Queued ${seenHrefs.size} unique items.`);
+console.log(`Queued ${seenHrefs.size} unique items for enrichment.`);
 
 await boss.stop();
 await closeDb();
