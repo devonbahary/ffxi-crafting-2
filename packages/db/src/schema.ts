@@ -6,6 +6,7 @@ import {
     pgEnum,
     pgTable,
     primaryKey,
+    real,
     serial,
     timestamp,
     uniqueIndex,
@@ -25,7 +26,7 @@ export const items = pgTable(
         href: varchar('href', { length: 256 }).notNull().unique(),
         ffxiId: integer('ffxi_id').unique(),
         name: varchar('name', { length: 128 }).notNull(),
-        stackSize: integer('stack_size').default(1),
+        stackSize: integer('stack_size').notNull().default(1),
         isExclusive: boolean('is_exclusive').notNull().default(false),
     },
     (t) => [check('stack_size_valid', sql`${t.stackSize} IN (1, 12, 99)`)],
@@ -38,13 +39,17 @@ export const itemAuctionPrices = pgTable(
         itemId: integer('item_id')
             .references(() => items.id)
             .notNull(),
-        price: integer('price'),
-        rate: varchar('rate', { length: 16 }),
-        stackPrice: integer('stack_price'),
-        stackRate: varchar('stack_rate', { length: 16 }),
+        price: integer('price').notNull(),
+        salesPerDay: real('sales_per_day').notNull(),
+        stackPrice: integer('stack_price').notNull(),
+        stackSalesPerDay: real('stack_sales_per_day').notNull(),
         createdAt: timestamp('created_at').notNull().defaultNow(),
     },
-    (t) => [index('item_auction_prices_item_id_created_at_idx').on(t.itemId, t.createdAt)],
+    (t) => [
+        index('item_auction_prices_item_id_created_at_idx').on(t.itemId, t.createdAt),
+        check('price_non_negative', sql`${t.price} >= 0`),
+        check('stack_price_non_negative', sql`${t.stackPrice} >= 0`),
+    ],
 );
 
 export const itemVendorPrices = pgTable(
@@ -58,7 +63,10 @@ export const itemVendorPrices = pgTable(
         vendorZone: varchar('vendor_zone', { length: 128 }),
         vendorLocation: varchar('vendor_location', { length: 128 }),
     },
-    (t) => [primaryKey({ columns: [t.itemId, t.vendorName] })],
+    (t) => [
+        primaryKey({ columns: [t.itemId, t.vendorName] }),
+        check('price_non_negative', sql`${t.price} >= 0`),
+    ],
 );
 
 export const syntheses = pgTable('syntheses', {
@@ -68,8 +76,8 @@ export const syntheses = pgTable('syntheses', {
     fingerprint: varchar('fingerprint', { length: 512 }).notNull().unique(),
 });
 
-export const synthesisCrafts = pgTable(
-    'synthesis_crafts',
+export const synthesisCraftRequirements = pgTable(
+    'synthesis_craft_requirements',
     {
         synthesisId: integer('synthesis_id')
             .references(() => syntheses.id)
@@ -83,6 +91,7 @@ export const synthesisCrafts = pgTable(
         uniqueIndex('one_main_craft_per_synthesis')
             .on(t.synthesisId)
             .where(sql`${t.isMain} = true`),
+        check('craft_level_positive', sql`${t.craftLevel} > 0`),
     ],
 );
 
@@ -98,7 +107,10 @@ export const synthesisYieldItems = pgTable(
         tier: tierEnum('tier').notNull(),
         quantity: integer('quantity').notNull(),
     },
-    (t) => [primaryKey({ columns: [t.synthesisId, t.itemId, t.tier] })],
+    (t) => [
+        primaryKey({ columns: [t.synthesisId, t.itemId, t.tier] }),
+        check('quantity_positive', sql`${t.quantity} > 0`),
+    ],
 );
 
 export const synthesisIngredientItems = pgTable(
@@ -112,5 +124,8 @@ export const synthesisIngredientItems = pgTable(
             .notNull(),
         quantity: integer('quantity').notNull(),
     },
-    (t) => [primaryKey({ columns: [t.synthesisId, t.itemId] })],
+    (t) => [
+        primaryKey({ columns: [t.synthesisId, t.itemId] }),
+        check('quantity_positive', sql`${t.quantity} > 0`),
+    ],
 );

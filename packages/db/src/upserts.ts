@@ -6,7 +6,7 @@ import {
     itemAuctionPrices,
     itemVendorPrices,
     syntheses,
-    synthesisCrafts,
+    synthesisCraftRequirements,
     synthesisYieldItems,
     synthesisIngredientItems,
 } from './schema.js';
@@ -14,7 +14,7 @@ import type { CraftRequirement } from '@ffxi-crafting/types';
 
 export type Tier = (typeof tierEnum.enumValues)[number];
 
-export type SynthesisCraftInsert = InferInsertModel<typeof synthesisCrafts>;
+export type SynthesisCraftRequirementInsert = InferInsertModel<typeof synthesisCraftRequirements>;
 
 export const upsertItemStub = async ({
     href,
@@ -44,7 +44,7 @@ export const upsertItem = async ({
     href: string;
     ffxiId: number;
     name: string;
-    stackSize?: number | null;
+    stackSize?: number;
     isExclusive?: boolean;
 }): Promise<number> => {
     const [row] = await db
@@ -66,17 +66,19 @@ export const upsertItem = async ({
 export const insertAuctionPrice = async ({
     itemId,
     price,
-    rate,
+    salesPerDay,
     stackPrice,
-    stackRate,
+    stackSalesPerDay,
 }: {
     itemId: number;
-    price?: number | null;
-    rate?: string | null;
-    stackPrice?: number | null;
-    stackRate?: string | null;
+    price: number;
+    salesPerDay: number;
+    stackPrice: number;
+    stackSalesPerDay: number;
 }): Promise<void> => {
-    await db.insert(itemAuctionPrices).values({ itemId, price, rate, stackPrice, stackRate });
+    await db
+        .insert(itemAuctionPrices)
+        .values({ itemId, price, salesPerDay, stackPrice, stackSalesPerDay });
 };
 
 export const upsertVendorPrice = async (vendor: {
@@ -145,7 +147,7 @@ export const upsertSynthesis = async ({
         if (!didCreateSynthesis) return;
 
         await tx
-            .insert(synthesisCrafts)
+            .insert(synthesisCraftRequirements)
             .values([
                 { synthesisId: synthesis.id, ...mainCraft, isMain: true },
                 ...subCrafts.map((sc) => ({ synthesisId: synthesis.id, ...sc, isMain: false })),

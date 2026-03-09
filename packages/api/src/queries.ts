@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@ffxi-crafting/db';
 import {
-    synthesisCrafts,
+    synthesisCraftRequirements,
     synthesisYieldItems,
     synthesisIngredientItems,
     items,
@@ -46,12 +46,17 @@ export const getSynthesesByCraft = async (craft: Craft): Promise<SynthesisDetail
     // 1. Ordered synthesis IDs where this craft is the main craft
     const mainCraftRows = await db
         .select({
-            synthesisId: synthesisCrafts.synthesisId,
-            craftLevel: synthesisCrafts.craftLevel,
+            synthesisId: synthesisCraftRequirements.synthesisId,
+            craftLevel: synthesisCraftRequirements.craftLevel,
         })
-        .from(synthesisCrafts)
-        .where(and(eq(synthesisCrafts.craft, craft), eq(synthesisCrafts.isMain, true)))
-        .orderBy(synthesisCrafts.craftLevel);
+        .from(synthesisCraftRequirements)
+        .where(
+            and(
+                eq(synthesisCraftRequirements.craft, craft),
+                eq(synthesisCraftRequirements.isMain, true),
+            ),
+        )
+        .orderBy(synthesisCraftRequirements.craftLevel);
 
     const synthesisIds = mainCraftRows.map((r) => r.synthesisId);
     if (synthesisIds.length === 0) return [];
@@ -59,13 +64,13 @@ export const getSynthesesByCraft = async (craft: Craft): Promise<SynthesisDetail
     // 2. All crafts for those synthesis IDs (to get sub-crafts)
     const allCraftRows = await db
         .select({
-            synthesisId: synthesisCrafts.synthesisId,
-            craft: synthesisCrafts.craft,
-            craftLevel: synthesisCrafts.craftLevel,
-            isMain: synthesisCrafts.isMain,
+            synthesisId: synthesisCraftRequirements.synthesisId,
+            craft: synthesisCraftRequirements.craft,
+            craftLevel: synthesisCraftRequirements.craftLevel,
+            isMain: synthesisCraftRequirements.isMain,
         })
-        .from(synthesisCrafts)
-        .where(inArray(synthesisCrafts.synthesisId, synthesisIds));
+        .from(synthesisCraftRequirements)
+        .where(inArray(synthesisCraftRequirements.synthesisId, synthesisIds));
 
     // 3. Yields with vendor info
     const yieldRows = await db
