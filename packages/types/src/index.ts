@@ -3,6 +3,10 @@ export type EnrichJob = {
     itemName: string;
 };
 
+export type PriceJob = {
+    itemId: number;
+};
+
 export const CRAFTS = [
     'Alchemy',
     'Bonecraft',

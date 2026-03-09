@@ -73,8 +73,8 @@ export const insertAuctionPrice = async ({
     itemId: number;
     price: number;
     salesPerDay: number;
-    stackPrice: number;
-    stackSalesPerDay: number;
+    stackPrice: number | null;
+    stackSalesPerDay: number | null;
 }): Promise<void> => {
     await db
         .insert(itemAuctionPrices)

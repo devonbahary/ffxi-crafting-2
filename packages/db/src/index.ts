@@ -11,3 +11,4 @@ export const closeDb = () => client.end();
 export * from './schema.js';
 export * from './boss.js';
 export * from './upserts.js';
+export * from './queries.js';

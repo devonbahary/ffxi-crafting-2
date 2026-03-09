@@ -41,14 +41,14 @@ export const itemAuctionPrices = pgTable(
             .notNull(),
         price: integer('price').notNull(),
         salesPerDay: real('sales_per_day').notNull(),
-        stackPrice: integer('stack_price').notNull(),
-        stackSalesPerDay: real('stack_sales_per_day').notNull(),
+        stackPrice: integer('stack_price'),
+        stackSalesPerDay: real('stack_sales_per_day'),
         createdAt: timestamp('created_at').notNull().defaultNow(),
     },
     (t) => [
         index('item_auction_prices_item_id_created_at_idx').on(t.itemId, t.createdAt),
         check('price_non_negative', sql`${t.price} >= 0`),
-        check('stack_price_non_negative', sql`${t.stackPrice} >= 0`),
+        check('stack_price_non_negative', sql`${t.stackPrice} IS NULL OR ${t.stackPrice} >= 0`),
     ],
 );
 

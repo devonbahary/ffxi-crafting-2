@@ -48,6 +48,25 @@ npm run enricher
 
 ```
 
+### Pricing
+
+Key to this project is refreshing FFXIAH item prices.
+
+To start the pricer (and schedule the midnight update for all items):
+```sh
+npm run pricer
+```
+
+To push all the items into the queue for an update:
+```sh
+npm run pricer:requeue
+```
+
+To update prices for just a single item (e.g., https://www.ffxiah.com/item/<ffxiId>/slime-oil):
+```sh
+npm run pricer:requeue -- <ffxiId>
+```
+
 ## Development
 
 ```sh
