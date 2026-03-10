@@ -1,3 +1,5 @@
+import { logger } from './logger.js';
+
 export type YieldPricing = {
     itemId: number;
     name: string;
@@ -46,7 +48,7 @@ export const calculateProfit = (
         const minPerUnit = getMinPerUnitCost(ingredient);
 
         if (minPerUnit === null) {
-            console.warn(
+            logger.warn(
                 `Could not calculate profitability for synthesisId=${synthesisId} (yield: ${nqYield.name}). No cost found for ingredient "${ingredient.name}" (itemId=${ingredient.itemId}).`,
             );
             return null;

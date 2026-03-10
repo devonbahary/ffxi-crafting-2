@@ -7,8 +7,9 @@ import {
 } from '@ffxi-crafting/db';
 import type { PriceJob, ProfitJob } from '@ffxi-crafting/types';
 import { fetchItemPrices } from './parsers/ffxiah-price-parser.js';
+import { logger } from './logger.js';
 
-console.log('Starting pricer...');
+logger.info('Starting pricer...');
 
 await boss.start();
 
@@ -21,7 +22,7 @@ await boss.schedule('item-auction-prices.update', '0 0 * * *', {});
 
 await boss.work('item-auction-prices.update', async () => {
     const items = await getAuctionableItems();
-    console.log(`Enqueueing price updates for ${items.length} items...`);
+    logger.info(`Enqueueing price updates for ${items.length} items...`);
 
     await boss.insert(
         items.map((item) => ({
@@ -33,7 +34,7 @@ await boss.work('item-auction-prices.update', async () => {
 
 await boss.work<PriceJob>('item-auction-price.update', { batchSize: 5 }, async (jobs) => {
     const remaining = await boss.getQueueSize('item-auction-price.update');
-    console.log(`Processing ${jobs.length} jobs (${remaining} remaining in queue)...`);
+    logger.info(`Processing ${jobs.length} jobs (${remaining} remaining in queue)...`);
 
     await Promise.all(
         jobs.map(async (job) => {
@@ -43,7 +44,7 @@ await boss.work<PriceJob>('item-auction-price.update', { batchSize: 5 }, async (
             if (!item) throw new Error(`No priceable item found for itemId=${itemId}`);
 
             const { name, ffxiId, stackSize } = item;
-            console.log(`Fetching price for ${name} | itemId=${itemId} ffxiId=${ffxiId}`);
+            logger.debug(`Fetching price for ${name} | itemId=${itemId} ffxiId=${ffxiId}`);
 
             const hasStack = stackSize > 1;
 
@@ -54,15 +55,16 @@ await boss.work<PriceJob>('item-auction-price.update', { batchSize: 5 }, async (
                 );
 
                 if (price === null || salesPerDay === null) {
-                    throw new Error(
+                    logger.warn(
                         `Could not find price data for ${name} | itemId=${itemId} ffxiId=${ffxiId}`,
                     );
+                    return
                 }
 
                 if (hasStack && (stackPrice === null || stackSalesPerDay === null)) {
                     // some stackable items have so little ffxiah data that there's no elements on the page to grab data from
                     // TODO: how can we flag when we EXPECT to find the data vs. when it's reasonable that an item doesn't have it
-                    console.warn(
+                    logger.warn(
                         `Could not find stack price data for ${name} | itemId=${itemId} ffxiId=${ffxiId}`,
                     );
                 }
@@ -77,11 +79,11 @@ await boss.work<PriceJob>('item-auction-price.update', { batchSize: 5 }, async (
 
                 await boss.send('synthesis-profit.update', { itemId } satisfies ProfitJob);
 
-                console.log(
-                    `  ${name} | price=${price} salesPerDay=${salesPerDay} stackPrice=${stackPrice} stackSalesPerDay=${stackSalesPerDay}`,
+                logger.debug(
+                    `${name} | price=${price} salesPerDay=${salesPerDay} stackPrice=${stackPrice} stackSalesPerDay=${stackSalesPerDay}`,
                 );
             } catch (err) {
-                console.error(`  Error fetching price for ${name} | ffxiId=${ffxiId}:`, err);
+                logger.error({ err }, `Error fetching price for ${name} | ffxiId=${ffxiId}`);
                 throw err;
             }
         }),

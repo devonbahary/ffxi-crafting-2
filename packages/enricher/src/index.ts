@@ -1,25 +1,26 @@
 import { boss, closeDb, upsertItem, upsertVendorPrice } from '@ffxi-crafting/db';
 import type { EnrichJob } from '@ffxi-crafting/types';
 import { extractItem } from './parsers/bg-wiki-item-parser.js';
+import { logger } from './logger.js';
 
-console.log('Starting enricher...');
+logger.info('Starting enricher...');
 
 await boss.start();
 
 await boss.work<EnrichJob>('item.enrich', async ([job]) => {
     const { href, itemName } = job.data;
-    console.log(`Processing item: ${itemName} (${href})`);
+    logger.info(`Processing item: ${itemName} (${href})`);
 
     try {
         const parsed = await extractItem(href);
         if (!parsed) {
-            console.warn(`  Could not parse item page for ${href}`);
+            logger.warn(`Could not parse item page for ${href}`);
             return;
         }
 
         const { ffxiId, stackSize, isExclusive, vendors } = parsed;
-        console.log(
-            `    ffxiId=${ffxiId} stackSize=${stackSize}${isExclusive ? ' Ex' : ''} vendors=${vendors.length}`,
+        logger.info(
+            `ffxiId=${ffxiId} stackSize=${stackSize}${isExclusive ? ' Ex' : ''} vendors=${vendors.length}`,
         );
 
         const id = await upsertItem({ href, ffxiId, name: itemName, stackSize, isExclusive });
@@ -28,7 +29,7 @@ await boss.work<EnrichJob>('item.enrich', async ([job]) => {
             await upsertVendorPrice({ itemId: id, ...vendor });
         }
     } catch (err) {
-        console.error(`  Error parsing item page for ${href}:`, err);
+        logger.error({ err }, `Error parsing item page for ${href}`);
         throw err;
     }
 });

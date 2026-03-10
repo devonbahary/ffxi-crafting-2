@@ -2,22 +2,23 @@ import { boss, closeDb, upsertItemStub, upsertSynthesis } from '@ffxi-crafting/d
 import type { Craft } from '@ffxi-crafting/types';
 import type { EnrichJob } from '@ffxi-crafting/types';
 import { extractSyntheses } from './parsers/bg-wiki-craft-parser.js';
+import { logger } from './logger.js';
 
-console.log('Starting discovery...');
+logger.info('Starting discovery...');
 
 await boss.start();
 await boss.createQueue('item.enrich');
 
-console.log('Parsing syntheses from bg-wiki...');
+logger.info('Parsing syntheses from bg-wiki...');
 const syntheses = await extractSyntheses();
-console.log(`Parsed ${syntheses.length} syntheses.`);
+logger.info(`Parsed ${syntheses.length} syntheses.`);
 
 const seenHrefs = new Set<string>();
 const hrefToId = new Map<string, number>();
 
 const getOrUpsertItemId = async (href: string, name: string): Promise<number> => {
     if (!hrefToId.has(href)) {
-        console.log(`Upserting item stub: ${name}`);
+        logger.info(`Upserting item stub: ${name}`);
         const id = await upsertItemStub({ href, name });
         hrefToId.set(href, id);
 
@@ -33,7 +34,7 @@ const getOrUpsertItemId = async (href: string, name: string): Promise<number> =>
 for (const synthesis of syntheses) {
     const { mainCraft } = synthesis;
 
-    console.log(
+    logger.info(
         `Upserting synthesis data for ${mainCraft.name} ${mainCraft.level} - ${synthesis.yields[0].name}`,
     );
 
@@ -68,7 +69,7 @@ for (const synthesis of syntheses) {
     });
 }
 
-console.log(`Queued ${seenHrefs.size} unique items for enrichment.`);
+logger.info(`Queued ${seenHrefs.size} unique items for enrichment.`);
 
 await boss.stop();
 await closeDb();

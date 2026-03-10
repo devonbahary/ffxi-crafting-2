@@ -7,15 +7,16 @@ import {
 } from '@ffxi-crafting/db';
 import type { ProfitJob } from '@ffxi-crafting/types';
 import { calculateProfit } from './calculator.js';
+import { logger } from './logger.js';
 
-console.log('Starting profitability worker...');
+logger.info('Starting profitability worker...');
 
 await boss.start();
 await boss.createQueue('synthesis-profit.update');
 
 await boss.work<ProfitJob>('synthesis-profit.update', { batchSize: 5 }, async (jobs) => {
     const remaining = await boss.getQueueSize('synthesis-profit.update');
-    console.log(`Processing ${jobs.length} jobs (${remaining} remaining in queue)...`);
+    logger.info(`Processing ${jobs.length} jobs (${remaining} remaining in queue)...`);
 
     await Promise.all(
         jobs.map(async (job) => {
@@ -24,7 +25,7 @@ await boss.work<ProfitJob>('synthesis-profit.update', { batchSize: 5 }, async (j
             try {
                 const synthesisIds = await getAuctionableSynthesisIds(itemId);
 
-                console.log(
+                logger.info(
                     `Found ${synthesisIds.length} syntheses involving item itemId=${itemId}...`,
                 );
 
@@ -32,21 +33,21 @@ await boss.work<ProfitJob>('synthesis-profit.update', { batchSize: 5 }, async (j
                     synthesisIds.map(async (synthesisId) => {
                         const data = await getSynthesisProfitabilityData(synthesisId);
                         if (!data) {
-                            console.warn(
+                            logger.warn(
                                 `Could not find synthesis data for synthesisId=${synthesisId}`,
                             );
                             return;
                         }
                         const result = calculateProfit(synthesisId, data.yields, data.ingredients);
                         if (!result) return;
-                        console.log(
-                            `  synthesisId=${synthesisId} profitPerSingle=${result.profitPerSingle} profitPerStack=${result.profitPerStack}`,
+                        logger.info(
+                            `synthesisId=${synthesisId} profitPerSingle=${result.profitPerSingle} profitPerStack=${result.profitPerStack}`,
                         );
                         await upsertSynthesisProfit({ synthesisId, ...result });
                     }),
                 );
             } catch (err) {
-                console.error(`Error considering syntheses for item itemId=${itemId}`, err);
+                logger.error({ err }, `Error considering syntheses for item itemId=${itemId}`);
                 throw err;
             }
         }),
