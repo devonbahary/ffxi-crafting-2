@@ -19,9 +19,10 @@ export type ItemPrices = ParsedPageData & {
     stackSalesPerDay: number | null;
 };
 
-const findTdValue = ($: cheerio.CheerioAPI, label: string): string | null => {
+const parseTableValue = ($: cheerio.CheerioAPI, label: string): string | null => {
     let value: string | null = null;
-    $('td').each((_, el) => {
+    // specifically find in the .stdtbl
+    $('.stdtbl td').each((_, el) => {
         if ($(el).text().trim() === label) {
             value = $(el).next('td').text().trim();
             return false;
@@ -32,8 +33,8 @@ const findTdValue = ($: cheerio.CheerioAPI, label: string): string | null => {
 
 export const parseItemPrice = (html: string): ParsedPageData => {
     const $ = cheerio.load(html);
-    const price = parseInt(findTdValue($, 'Median') ?? '', 10) || null;
-    const salesPerDay = parseFloat(findTdValue($, 'Rate') ?? '') || null;
+    const price = parseInt(parseTableValue($, 'Median') ?? '', 10) || null;
+    const salesPerDay = parseFloat(parseTableValue($, 'Rate') ?? '') || null;
     return { price, salesPerDay };
 };
 
