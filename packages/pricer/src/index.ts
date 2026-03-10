@@ -58,7 +58,7 @@ await boss.work<PriceJob>('item-auction-price.update', { batchSize: 5 }, async (
                     logger.warn(
                         `Could not find price data for ${name} | itemId=${itemId} ffxiId=${ffxiId}`,
                     );
-                    return
+                    return;
                 }
 
                 if (hasStack && (stackPrice === null || stackSalesPerDay === null)) {
