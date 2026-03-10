@@ -4,6 +4,7 @@ import type { SynthesisDetail, VendorInfo } from '@ffxi-crafting/api';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { formatGil } from '@/lib/utils';
 
 const TIER_ORDER = ['NQ', 'HQ1', 'HQ2', 'HQ3'];
 
@@ -27,7 +28,7 @@ const IngredientItem = ({
             <Collapsible open={open} onOpenChange={setOpen}>
                 <CollapsibleTrigger className="flex cursor-pointer items-center gap-1 text-left">
                     <span>
-                        {label} — {minPrice!.toLocaleString()} gil
+                        {label} — {formatGil(minPrice!)}
                     </span>
                     {open ? (
                         <ChevronDown className="size-3 shrink-0" />
@@ -45,7 +46,7 @@ const IngredientItem = ({
                                 <li key={v.vendorName}>
                                     {v.vendorName}
                                     {location ? ` (${location})` : ''} —{' '}
-                                    {v.price.toLocaleString()} gil
+                                    {formatGil(v.price)}
                                 </li>
                             );
                         })}

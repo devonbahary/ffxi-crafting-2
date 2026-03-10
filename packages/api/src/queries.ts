@@ -1,10 +1,11 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, max } from 'drizzle-orm';
 import { db } from '@ffxi-crafting/db';
 import {
     synthesisCraftRequirements,
     synthesisYieldItems,
     synthesisIngredientItems,
     items,
+    itemAuctionPrices,
     itemVendorPrices,
 } from '@ffxi-crafting/db';
 import type { Craft, CraftRequirement } from '@ffxi-crafting/types';
@@ -40,6 +41,102 @@ export type SynthesisDetail = {
     crystal: ItemWithVendors;
     ingredients: ItemWithVendors[];
     yields: (ItemWithVendors & { tier: string })[];
+};
+
+export type ItemDetail = {
+    id: number;
+    name: string;
+    stackSize: number;
+    isExclusive: boolean;
+    ffxiId: number | null;
+    auctionPrice: number | null;
+    auctionSalesPerDay: number | null;
+    auctionStackPrice: number | null;
+    auctionStackSalesPerDay: number | null;
+    vendors: VendorInfo[];
+};
+
+export const searchItemsByName = async (name: string): Promise<ItemDetail[]> => {
+    const matchingItems = await db
+        .select({
+            id: items.id,
+            name: items.name,
+            stackSize: items.stackSize,
+            isExclusive: items.isExclusive,
+            ffxiId: items.ffxiId,
+        })
+        .from(items)
+        .where(ilike(items.name, `%${name}%`))
+        .orderBy(items.name)
+        .limit(50);
+
+    if (matchingItems.length === 0) return [];
+
+    const itemIds = matchingItems.map((i) => i.id);
+
+    const latestSub = db
+        .select({
+            itemId: itemAuctionPrices.itemId,
+            maxAt: max(itemAuctionPrices.createdAt).as('max_at'),
+        })
+        .from(itemAuctionPrices)
+        .where(inArray(itemAuctionPrices.itemId, itemIds))
+        .groupBy(itemAuctionPrices.itemId)
+        .as('latest');
+
+    const [auctionRows, vendorRows] = await Promise.all([
+        db
+            .select({
+                itemId: itemAuctionPrices.itemId,
+                price: itemAuctionPrices.price,
+                salesPerDay: itemAuctionPrices.salesPerDay,
+                stackPrice: itemAuctionPrices.stackPrice,
+                stackSalesPerDay: itemAuctionPrices.stackSalesPerDay,
+            })
+            .from(itemAuctionPrices)
+            .innerJoin(
+                latestSub,
+                and(
+                    eq(itemAuctionPrices.itemId, latestSub.itemId),
+                    eq(itemAuctionPrices.createdAt, latestSub.maxAt),
+                ),
+            ),
+        db
+            .select({
+                itemId: itemVendorPrices.itemId,
+                vendorName: itemVendorPrices.vendorName,
+                vendorZone: itemVendorPrices.vendorZone,
+                vendorLocation: itemVendorPrices.vendorLocation,
+                price: itemVendorPrices.price,
+            })
+            .from(itemVendorPrices)
+            .where(inArray(itemVendorPrices.itemId, itemIds))
+            .orderBy(desc(itemVendorPrices.price)),
+    ]);
+
+    const auctionByItemId = new Map(auctionRows.map((r) => [r.itemId, r]));
+    const vendorsByItemId = new Map<number, VendorInfo[]>();
+    for (const row of vendorRows) {
+        if (!vendorsByItemId.has(row.itemId)) vendorsByItemId.set(row.itemId, []);
+        vendorsByItemId.get(row.itemId)!.push({
+            vendorName: row.vendorName,
+            vendorZone: row.vendorZone,
+            vendorLocation: row.vendorLocation,
+            price: row.price,
+        });
+    }
+
+    return matchingItems.map((item) => {
+        const auction = auctionByItemId.get(item.id);
+        return {
+            ...item,
+            auctionPrice: auction?.price ?? null,
+            auctionSalesPerDay: auction?.salesPerDay ?? null,
+            auctionStackPrice: auction?.stackPrice ?? null,
+            auctionStackSalesPerDay: auction?.stackSalesPerDay ?? null,
+            vendors: vendorsByItemId.get(item.id) ?? [],
+        };
+    });
 };
 
 export const getSynthesesByCraft = async (craft: Craft): Promise<SynthesisDetail[]> => {

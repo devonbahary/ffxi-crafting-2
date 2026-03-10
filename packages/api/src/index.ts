@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { CRAFTS } from '@ffxi-crafting/types';
-import { getSynthesesByCraft } from './queries.js';
+import { getSynthesesByCraft, searchItemsByName } from './queries.js';
 import { closeDb } from '@ffxi-crafting/db';
 
 const app = new Hono()
@@ -13,6 +13,11 @@ const app = new Hono()
         const { craft } = c.req.valid('query');
         const syntheses = await getSynthesesByCraft(craft);
         return c.json(syntheses);
+    })
+    .get('/api/items', zValidator('query', z.object({ name: z.string().min(1) })), async (c) => {
+        const { name } = c.req.valid('query');
+        const items = await searchItemsByName(name);
+        return c.json(items);
     });
 
 export type AppType = typeof app;
