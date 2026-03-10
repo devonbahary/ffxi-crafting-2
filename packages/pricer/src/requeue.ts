@@ -8,7 +8,7 @@ if (ffxiId) {
     const payload = await getItemByFfxiId(ffxiId);
     if (!payload) throw new Error(`No item found with ffxiId=${ffxiId}`);
 
-    await boss.send('item-auction-price.update', payload);
+    await boss.send('item-auction-price.update', { itemId: payload.id });
     console.log(`Queued ffxiId=${ffxiId} (itemId=${payload.id}) for price update`);
 } else {
     await boss.send('item-auction-prices.update', {});
