@@ -4,7 +4,12 @@ import { cors } from 'hono/cors';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { CRAFTS } from '@ffxi-crafting/types';
-import { getSynthesesByCraft, searchItemsByName } from './queries.js';
+import {
+    getSynthesesByCraft,
+    getSynthesesByIngredientItemId,
+    getSynthesesByYieldItemId,
+    searchItemsByName,
+} from './queries.js';
 import { closeDb } from '@ffxi-crafting/db';
 
 const app = new Hono()
@@ -18,6 +23,18 @@ const app = new Hono()
         const { name } = c.req.valid('query');
         const items = await searchItemsByName(name);
         return c.json(items);
+    })
+    .get('/api/items/:itemId/syntheses', async (c) => {
+        const itemId = parseInt(c.req.param('itemId'), 10);
+        if (isNaN(itemId)) return c.json({ error: 'Invalid itemId' }, 400);
+        const syntheses = await getSynthesesByYieldItemId(itemId);
+        return c.json(syntheses);
+    })
+    .get('/api/items/:itemId/ingredient-syntheses', async (c) => {
+        const itemId = parseInt(c.req.param('itemId'), 10);
+        if (isNaN(itemId)) return c.json({ error: 'Invalid itemId' }, 400);
+        const syntheses = await getSynthesesByIngredientItemId(itemId);
+        return c.json(syntheses);
     });
 
 export type AppType = typeof app;

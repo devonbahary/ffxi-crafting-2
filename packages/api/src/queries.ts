@@ -29,6 +29,7 @@ export type VendorInfo = {
 };
 
 export type ItemWithVendors = {
+    itemId: number;
     name: string;
     quantity: number;
     vendors: VendorInfo[];
@@ -139,70 +140,51 @@ export const searchItemsByName = async (name: string): Promise<ItemDetail[]> => 
     });
 };
 
-export const getSynthesesByCraft = async (craft: Craft): Promise<SynthesisDetail[]> => {
-    // 1. Ordered synthesis IDs where this craft is the main craft
-    const mainCraftRows = await db
-        .select({
-            synthesisId: synthesisCraftRequirements.synthesisId,
-            craftLevel: synthesisCraftRequirements.craftLevel,
-        })
-        .from(synthesisCraftRequirements)
-        .where(
-            and(
-                eq(synthesisCraftRequirements.craft, craft),
-                eq(synthesisCraftRequirements.isMain, true),
-            ),
-        )
-        .orderBy(synthesisCraftRequirements.craftLevel);
-
-    const synthesisIds = mainCraftRows.map((r) => r.synthesisId);
+const assembleSynthesesByIds = async (synthesisIds: number[]): Promise<SynthesisDetail[]> => {
     if (synthesisIds.length === 0) return [];
 
-    // 2. All crafts for those synthesis IDs (to get sub-crafts)
-    const allCraftRows = await db
-        .select({
-            synthesisId: synthesisCraftRequirements.synthesisId,
-            craft: synthesisCraftRequirements.craft,
-            craftLevel: synthesisCraftRequirements.craftLevel,
-            isMain: synthesisCraftRequirements.isMain,
-        })
-        .from(synthesisCraftRequirements)
-        .where(inArray(synthesisCraftRequirements.synthesisId, synthesisIds));
-
-    // 3. Yields with vendor info
-    const yieldRows = await db
-        .select({
-            synthesisId: synthesisYieldItems.synthesisId,
-            tier: synthesisYieldItems.tier,
-            quantity: synthesisYieldItems.quantity,
-            name: items.name,
-            itemId: items.id,
-            vendorName: itemVendorPrices.vendorName,
-            vendorZone: itemVendorPrices.vendorZone,
-            vendorLocation: itemVendorPrices.vendorLocation,
-            price: itemVendorPrices.price,
-        })
-        .from(synthesisYieldItems)
-        .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
-        .leftJoin(itemVendorPrices, eq(itemVendorPrices.itemId, items.id))
-        .where(inArray(synthesisYieldItems.synthesisId, synthesisIds));
-
-    // 4. Ingredients with vendor info
-    const ingredientRows = await db
-        .select({
-            synthesisId: synthesisIngredientItems.synthesisId,
-            quantity: synthesisIngredientItems.quantity,
-            name: items.name,
-            itemId: items.id,
-            vendorName: itemVendorPrices.vendorName,
-            vendorZone: itemVendorPrices.vendorZone,
-            vendorLocation: itemVendorPrices.vendorLocation,
-            price: itemVendorPrices.price,
-        })
-        .from(synthesisIngredientItems)
-        .innerJoin(items, eq(synthesisIngredientItems.itemId, items.id))
-        .leftJoin(itemVendorPrices, eq(itemVendorPrices.itemId, items.id))
-        .where(inArray(synthesisIngredientItems.synthesisId, synthesisIds));
+    const [allCraftRows, yieldRows, ingredientRows] = await Promise.all([
+        db
+            .select({
+                synthesisId: synthesisCraftRequirements.synthesisId,
+                craft: synthesisCraftRequirements.craft,
+                craftLevel: synthesisCraftRequirements.craftLevel,
+                isMain: synthesisCraftRequirements.isMain,
+            })
+            .from(synthesisCraftRequirements)
+            .where(inArray(synthesisCraftRequirements.synthesisId, synthesisIds)),
+        db
+            .select({
+                synthesisId: synthesisYieldItems.synthesisId,
+                tier: synthesisYieldItems.tier,
+                quantity: synthesisYieldItems.quantity,
+                name: items.name,
+                itemId: items.id,
+                vendorName: itemVendorPrices.vendorName,
+                vendorZone: itemVendorPrices.vendorZone,
+                vendorLocation: itemVendorPrices.vendorLocation,
+                price: itemVendorPrices.price,
+            })
+            .from(synthesisYieldItems)
+            .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
+            .leftJoin(itemVendorPrices, eq(itemVendorPrices.itemId, items.id))
+            .where(inArray(synthesisYieldItems.synthesisId, synthesisIds)),
+        db
+            .select({
+                synthesisId: synthesisIngredientItems.synthesisId,
+                quantity: synthesisIngredientItems.quantity,
+                name: items.name,
+                itemId: items.id,
+                vendorName: itemVendorPrices.vendorName,
+                vendorZone: itemVendorPrices.vendorZone,
+                vendorLocation: itemVendorPrices.vendorLocation,
+                price: itemVendorPrices.price,
+            })
+            .from(synthesisIngredientItems)
+            .innerJoin(items, eq(synthesisIngredientItems.itemId, items.id))
+            .leftJoin(itemVendorPrices, eq(itemVendorPrices.itemId, items.id))
+            .where(inArray(synthesisIngredientItems.synthesisId, synthesisIds)),
+    ]);
 
     // Group craft rows by synthesisId
     const craftsBySynthesis = new Map<
@@ -235,7 +217,12 @@ export const getSynthesesByCraft = async (craft: Craft): Promise<SynthesisDetail
             const itemMap = map.get(row.synthesisId)!;
             const key: ItemKey = `${row.itemId}-${row.name}`;
             if (!itemMap.has(key)) {
-                itemMap.set(key, { name: row.name, quantity: row.quantity, vendors: [] });
+                itemMap.set(key, {
+                    itemId: row.itemId,
+                    name: row.name,
+                    quantity: row.quantity,
+                    vendors: [],
+                });
             }
             if (row.vendorName && row.price !== null) {
                 itemMap.get(key)!.vendors.push({
@@ -261,6 +248,7 @@ export const getSynthesesByCraft = async (craft: Craft): Promise<SynthesisDetail
             const key: YieldKey = `${row.itemId}-${row.name}-${row.tier}`;
             if (!itemMap.has(key)) {
                 itemMap.set(key, {
+                    itemId: row.itemId,
                     name: row.name,
                     quantity: row.quantity,
                     tier: row.tier,
@@ -282,9 +270,8 @@ export const getSynthesesByCraft = async (craft: Craft): Promise<SynthesisDetail
     const ingredientsBySynthesis = groupIngredients(ingredientRows);
     const yieldsBySynthesis = groupYields(yieldRows);
 
-    // Build ordered results
     const results: SynthesisDetail[] = [];
-    for (const { synthesisId: sid } of mainCraftRows) {
+    for (const sid of synthesisIds) {
         const crafts = craftsBySynthesis.get(sid);
         if (!crafts) continue;
 
@@ -308,4 +295,41 @@ export const getSynthesesByCraft = async (craft: Craft): Promise<SynthesisDetail
     }
 
     return results;
+};
+
+export const getSynthesesByCraft = async (craft: Craft): Promise<SynthesisDetail[]> => {
+    const mainCraftRows = await db
+        .select({
+            synthesisId: synthesisCraftRequirements.synthesisId,
+        })
+        .from(synthesisCraftRequirements)
+        .where(
+            and(
+                eq(synthesisCraftRequirements.craft, craft),
+                eq(synthesisCraftRequirements.isMain, true),
+            ),
+        )
+        .orderBy(synthesisCraftRequirements.craftLevel);
+
+    return assembleSynthesesByIds(mainCraftRows.map((r) => r.synthesisId));
+};
+
+export const getSynthesesByYieldItemId = async (itemId: number): Promise<SynthesisDetail[]> => {
+    const rows = await db
+        .selectDistinct({ synthesisId: synthesisYieldItems.synthesisId })
+        .from(synthesisYieldItems)
+        .where(eq(synthesisYieldItems.itemId, itemId));
+
+    return assembleSynthesesByIds(rows.map((r) => r.synthesisId));
+};
+
+export const getSynthesesByIngredientItemId = async (
+    itemId: number,
+): Promise<SynthesisDetail[]> => {
+    const rows = await db
+        .selectDistinct({ synthesisId: synthesisIngredientItems.synthesisId })
+        .from(synthesisIngredientItems)
+        .where(eq(synthesisIngredientItems.itemId, itemId));
+
+    return assembleSynthesesByIds(rows.map((r) => r.synthesisId));
 };

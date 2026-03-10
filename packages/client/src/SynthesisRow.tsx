@@ -12,19 +12,21 @@ const IngredientItem = ({
     name,
     quantity,
     vendors,
+    highlight,
 }: {
     name: string;
     quantity: number;
     vendors: VendorInfo[];
+    highlight?: boolean;
 }) => {
     const [open, setOpen] = useState(false);
     const label = quantity > 1 ? `${name} x${quantity}` : name;
     const minPrice = vendors.length > 0 ? Math.min(...vendors.map((v) => v.price)) : null;
 
-    if (vendors.length === 0) return <li>{label}</li>;
+    if (vendors.length === 0) return <li className={highlight ? 'font-semibold' : ''}>{label}</li>;
 
     return (
-        <li>
+        <li className={highlight ? 'font-semibold' : ''}>
             <Collapsible open={open} onOpenChange={setOpen}>
                 <CollapsibleTrigger className="flex cursor-pointer items-center gap-1 text-left">
                     <span>
@@ -57,7 +59,15 @@ const IngredientItem = ({
     );
 };
 
-export const SynthesisRow = ({ synthesis }: { synthesis: SynthesisDetail }) => {
+export const SynthesisRow = ({
+    synthesis,
+    highlightItemId,
+    highlightIngredientItemId,
+}: {
+    synthesis: SynthesisDetail;
+    highlightItemId?: number;
+    highlightIngredientItemId?: number;
+}) => {
     const sortedYields = [...synthesis.yields].sort(
         (a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier),
     );
@@ -71,8 +81,11 @@ export const SynthesisRow = ({ synthesis }: { synthesis: SynthesisDetail }) => {
             <TableCell>
                 <ul className="space-y-1">
                     {sortedYields.map((y) => (
-                        <li key={y.tier}>
-                            <Badge variant="outline" className="mr-1.5 text-xs">
+                        <li key={y.tier} className={y.itemId === highlightItemId ? 'font-semibold' : ''}>
+                            <Badge
+                                variant={y.itemId === highlightItemId ? 'default' : 'outline'}
+                                className="mr-1.5 text-xs"
+                            >
                                 {y.tier}
                             </Badge>
                             {y.name}
@@ -89,6 +102,7 @@ export const SynthesisRow = ({ synthesis }: { synthesis: SynthesisDetail }) => {
                             name={ing.name}
                             quantity={ing.quantity}
                             vendors={ing.vendors}
+                            highlight={ing.itemId === highlightIngredientItemId}
                         />
                     ))}
                 </ul>

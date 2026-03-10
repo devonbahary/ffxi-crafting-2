@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { hc } from 'hono/client';
-import type { AppType } from '@ffxi-crafting/api';
-import type { ItemDetail } from '@ffxi-crafting/api';
+import type { AppType, ItemDetail, SynthesisDetail } from '@ffxi-crafting/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { SynthesisRow } from '@/SynthesisRow';
 import { formatGil } from '@/lib/utils';
 import { getSalesRating, getRatingColor } from '@/lib/sales-rating';
 
@@ -24,6 +24,104 @@ const RatingCell = ({ salesPerDay }: { salesPerDay: number | null }) => {
     );
 };
 
+const EXPANDED_COL_SPAN = 7;
+
+const ItemExpandedRow = ({ item }: { item: ItemDetail }) => {
+    const [syntheses, setSyntheses] = useState<SynthesisDetail[] | null>(null);
+    const [ingredientSyntheses, setIngredientSyntheses] = useState<SynthesisDetail[] | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        Promise.all([
+            client.api.items[':itemId'].syntheses
+                .$get({ param: { itemId: String(item.id) } })
+                .then((res) => res.json()),
+            client.api.items[':itemId']['ingredient-syntheses']
+                .$get({ param: { itemId: String(item.id) } })
+                .then((res) => res.json()),
+        ])
+            .then(([yieldSyntheses, ingSyntheses]) => {
+                setSyntheses(yieldSyntheses);
+                setIngredientSyntheses(ingSyntheses);
+            })
+            .finally(() => setLoading(false));
+    }, [item.id]);
+
+    return (
+        <TableRow className="bg-muted/40 hover:bg-muted/40">
+            <TableCell colSpan={EXPANDED_COL_SPAN} className="p-4">
+                {loading && <p className="text-muted-foreground text-sm">Loading...</p>}
+
+                {!loading && syntheses && syntheses.length > 0 && (
+                    <div className="mb-4">
+                        <p className="text-sm font-semibold mb-2">Syntheses (yields this item)</p>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-12 text-center">Lv</TableHead>
+                                    <TableHead className="w-36">Crystal</TableHead>
+                                    <TableHead>Yields</TableHead>
+                                    <TableHead>Ingredients</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {syntheses.map((s) => (
+                                    <SynthesisRow key={s.id} synthesis={s} highlightItemId={item.id} />
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+
+                {!loading && ingredientSyntheses && ingredientSyntheses.length > 0 && (
+                    <div className="mb-4">
+                        <p className="text-sm font-semibold mb-2">Syntheses (uses this item)</p>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-12 text-center">Lv</TableHead>
+                                    <TableHead className="w-36">Crystal</TableHead>
+                                    <TableHead>Yields</TableHead>
+                                    <TableHead>Ingredients</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {ingredientSyntheses.map((s) => (
+                                    <SynthesisRow
+                                        key={s.id}
+                                        synthesis={s}
+                                        highlightIngredientItemId={item.id}
+                                    />
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+
+                {item.vendors.length > 0 && (
+                    <div>
+                        <p className="text-sm font-semibold mb-2">Vendors</p>
+                        <ul className="text-sm space-y-1">
+                            {item.vendors.map((v) => {
+                                const location = [v.vendorZone, v.vendorLocation]
+                                    .filter(Boolean)
+                                    .join(', ');
+                                return (
+                                    <li key={v.vendorName}>
+                                        {v.vendorName}
+                                        {location ? ` (${location})` : ''} —{' '}
+                                        {formatGil(v.price)}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                )}
+            </TableCell>
+        </TableRow>
+    );
+};
+
 const ItemsPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const query = searchParams.get('name') ?? '';
@@ -31,9 +129,11 @@ const ItemsPage = () => {
     const [items, setItems] = useState<ItemDetail[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
+        setExpandedItemId(null);
         if (!query) {
             setItems([]);
             return;
@@ -93,27 +193,44 @@ const ItemsPage = () => {
                     </TableHeader>
                     <TableBody>
                         {items.map((item) => (
-                            <TableRow key={item.id}>
-                                <TableCell>{item.name}</TableCell>
-                                <TableCell className="text-right">
-                                    {item.stackSize > 1 ? `x${item.stackSize}` : '—'}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    {item.auctionPrice !== null ? formatGil(item.auctionPrice) : '—'}
-                                </TableCell>
-                                <RatingCell salesPerDay={item.auctionSalesPerDay} />
-                                <TableCell className="text-right">
-                                    {item.auctionStackPrice !== null
-                                        ? formatGil(item.auctionStackPrice)
-                                        : '—'}
-                                </TableCell>
-                                <RatingCell salesPerDay={item.auctionStackSalesPerDay} />
-                                <TableCell className="text-right">
-                                    {item.vendors.length === 0
-                                        ? '—'
-                                        : formatGil(Math.min(...item.vendors.map((v) => v.price)))}
-                                </TableCell>
-                            </TableRow>
+                            <>
+                                <TableRow
+                                    key={item.id}
+                                    className="cursor-pointer"
+                                    onClick={() =>
+                                        setExpandedItemId(
+                                            expandedItemId === item.id ? null : item.id,
+                                        )
+                                    }
+                                >
+                                    <TableCell>{item.name}</TableCell>
+                                    <TableCell className="text-right">
+                                        {item.stackSize > 1 ? `x${item.stackSize}` : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        {item.auctionPrice !== null
+                                            ? formatGil(item.auctionPrice)
+                                            : '—'}
+                                    </TableCell>
+                                    <RatingCell salesPerDay={item.auctionSalesPerDay} />
+                                    <TableCell className="text-right">
+                                        {item.auctionStackPrice !== null
+                                            ? formatGil(item.auctionStackPrice)
+                                            : '—'}
+                                    </TableCell>
+                                    <RatingCell salesPerDay={item.auctionStackSalesPerDay} />
+                                    <TableCell className="text-right">
+                                        {item.vendors.length === 0
+                                            ? '—'
+                                            : formatGil(
+                                                  Math.min(...item.vendors.map((v) => v.price)),
+                                              )}
+                                    </TableCell>
+                                </TableRow>
+                                {expandedItemId === item.id && (
+                                    <ItemExpandedRow key={`${item.id}-expanded`} item={item} />
+                                )}
+                            </>
                         ))}
                     </TableBody>
                 </Table>
