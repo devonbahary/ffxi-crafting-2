@@ -31,6 +31,9 @@ await boss.work('item-auction-prices.update', async () => {
 });
 
 await boss.work<PriceJob>('item-auction-price.update', { batchSize: 5 }, async (jobs) => {
+    const remaining = await boss.getQueueSize('item-auction-price.update');
+    console.log(`Processing ${jobs.length} jobs (${remaining} remaining in queue)...`);
+
     await Promise.all(
         jobs.map(async (job) => {
             const { itemId } = job.data;
