@@ -5,7 +5,7 @@ import {
     getAuctionableItems,
     insertAuctionPrice,
 } from '@ffxi-crafting/db';
-import type { PriceJob } from '@ffxi-crafting/types';
+import type { PriceJob, ProfitJob } from '@ffxi-crafting/types';
 import { fetchItemPrices } from './parsers/ffxiah-price-parser.js';
 
 console.log('Starting pricer...');
@@ -14,6 +14,7 @@ await boss.start();
 
 await boss.createQueue('item-auction-prices.update');
 await boss.createQueue('item-auction-price.update');
+await boss.createQueue('synthesis-profit.update');
 
 // schedule a midnight job for 'item-auction-prices.update'
 await boss.schedule('item-auction-prices.update', '0 0 * * *', {});
@@ -73,6 +74,8 @@ await boss.work<PriceJob>('item-auction-price.update', { batchSize: 5 }, async (
                     stackPrice,
                     stackSalesPerDay,
                 });
+
+                await boss.send('synthesis-profit.update', { itemId } satisfies ProfitJob);
 
                 console.log(
                     `  ${name} | price=${price} salesPerDay=${salesPerDay} stackPrice=${stackPrice} stackSalesPerDay=${stackSalesPerDay}`,

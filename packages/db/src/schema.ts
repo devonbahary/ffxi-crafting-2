@@ -129,3 +129,17 @@ export const synthesisIngredientItems = pgTable(
         check('quantity_positive', sql`${t.quantity} > 0`),
     ],
 );
+
+export const synthesisProfits = pgTable(
+    'synthesis_profits',
+    {
+        id: serial('id').primaryKey(),
+        synthesisId: integer('synthesis_id')
+            .references(() => syntheses.id)
+            .notNull(),
+        profitPerSingle: integer('profit_per_single').notNull(),
+        profitPerStack: integer('profit_per_stack'),
+        createdAt: timestamp('created_at').notNull().defaultNow(),
+    },
+    (t) => [index('synthesis_profits_synthesis_id_created_at_idx').on(t.synthesisId, t.createdAt)],
+);

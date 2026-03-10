@@ -7,6 +7,10 @@ export type PriceJob = {
     itemId: number;
 };
 
+export type ProfitJob = {
+    itemId: number;
+};
+
 export const CRAFTS = [
     'Alchemy',
     'Bonecraft',

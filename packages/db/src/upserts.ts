@@ -1,4 +1,4 @@
-import { sql, type InferInsertModel } from 'drizzle-orm';
+import { and, desc, eq, gt, sql, type InferInsertModel } from 'drizzle-orm';
 import { db } from './index.js';
 import {
     tierEnum,
@@ -9,6 +9,7 @@ import {
     synthesisCraftRequirements,
     synthesisYieldItems,
     synthesisIngredientItems,
+    synthesisProfits,
 } from './schema.js';
 import type { CraftRequirement } from '@ffxi-crafting/types';
 
@@ -99,6 +100,43 @@ export const upsertVendorPrice = async (vendor: {
                 vendorLocation: sql`excluded.vendor_location`,
             },
         });
+};
+
+const PROFIT_WINDOW_HOURS = 24;
+
+export const upsertSynthesisProfit = async ({
+    synthesisId,
+    profitPerSingle,
+    profitPerStack,
+}: {
+    synthesisId: number;
+    profitPerSingle: number;
+    profitPerStack: number | null;
+}): Promise<void> => {
+    const recent = await db
+        .select({ id: synthesisProfits.id })
+        .from(synthesisProfits)
+        .where(
+            and(
+                eq(synthesisProfits.synthesisId, synthesisId),
+                gt(
+                    synthesisProfits.createdAt,
+                    sql`now() - interval '${sql.raw(String(PROFIT_WINDOW_HOURS))} hours'`,
+                ),
+            ),
+        )
+        .orderBy(desc(synthesisProfits.createdAt))
+        .limit(1)
+        .then((r) => r[0]);
+
+    if (recent) {
+        await db
+            .update(synthesisProfits)
+            .set({ profitPerSingle, profitPerStack })
+            .where(eq(synthesisProfits.id, recent.id));
+    } else {
+        await db.insert(synthesisProfits).values({ synthesisId, profitPerSingle, profitPerStack });
+    }
 };
 
 type SynthesisInput = {

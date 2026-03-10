@@ -13,6 +13,7 @@
     "discovery": "npm run dev --workspace=packages/discovery",
     "enricher": "npm run dev --workspace=packages/enricher",
     "pricer": "npm run dev --workspace=packages/pricer",
+    "profitability": "npm run dev --workspace=packages/profitability",
     "pricer:requeue": "npm run requeue --workspace=packages/pricer --",
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run build --workspace=packages/types && npm run typecheck --workspaces --if-present",

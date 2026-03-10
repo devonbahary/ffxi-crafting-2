@@ -1,6 +1,12 @@
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, exists, inArray, isNotNull, max, min } from 'drizzle-orm';
 import { db } from './index.js';
-import { items } from './schema.js';
+import {
+    itemAuctionPrices,
+    itemVendorPrices,
+    items,
+    synthesisIngredientItems,
+    synthesisYieldItems,
+} from './schema.js';
 import type { Item } from './types.js';
 
 type ItemPricingRow = {
@@ -25,6 +31,183 @@ export const getAuctionableItems = async (): Promise<{ id: number }[]> => {
         .where(and(isNotNull(items.ffxiId), eq(items.isExclusive, false)));
 
     return rows;
+};
+
+// for a given itemId, find all syntheses where the item is involved as a yield or an ingredient
+// whose yield is auctionable
+export const getAuctionableSynthesisIds = async (itemId: number): Promise<number[]> => {
+    // find all involved syntheses (yield or ingredient)
+    const [yieldRows, ingredientRows] = await Promise.all([
+        db
+            .select({ synthesisId: synthesisYieldItems.synthesisId })
+            .from(synthesisYieldItems)
+            .where(eq(synthesisYieldItems.itemId, itemId)),
+        db
+            .select({ synthesisId: synthesisIngredientItems.synthesisId })
+            .from(synthesisIngredientItems)
+            .where(eq(synthesisIngredientItems.itemId, itemId)),
+    ]);
+
+    const allSynthesisIds = [
+        ...new Set([...yieldRows, ...ingredientRows].map((r) => r.synthesisId)),
+    ];
+
+    if (allSynthesisIds.length === 0) return [];
+
+    // Filter to syntheses that have at least one non-exclusive yield with auction price data
+    const auctionable = await db
+        .selectDistinct({ synthesisId: synthesisYieldItems.synthesisId })
+        .from(synthesisYieldItems)
+        .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
+        .where(
+            and(
+                inArray(synthesisYieldItems.synthesisId, allSynthesisIds),
+                eq(items.isExclusive, false), // exclusive items cannot be sold
+                exists(
+                    db
+                        .select()
+                        .from(itemAuctionPrices)
+                        .where(eq(itemAuctionPrices.itemId, items.id)),
+                ),
+            ),
+        );
+
+    return auctionable.map((r) => r.synthesisId);
+};
+
+type SynthesisProfitabilityData = {
+    yields: {
+        itemId: number;
+        name: string;
+        quantity: number;
+        price: number;
+        stackPrice: number | null;
+        stackSize: number;
+    }[];
+    ingredients: {
+        itemId: number;
+        name: string;
+        quantity: number;
+        auctionPrice: number | null;
+        auctionStackPrice: number | null;
+        stackSize: number;
+        vendorPrice: number | null;
+    }[];
+};
+
+export const getSynthesisProfitabilityData = async (
+    synthesisId: number,
+): Promise<SynthesisProfitabilityData | null> => {
+    const [yieldRows, ingredientRows] = await Promise.all([
+        db
+            .select({
+                itemId: synthesisYieldItems.itemId,
+                name: items.name,
+                quantity: synthesisYieldItems.quantity,
+                stackSize: items.stackSize,
+                ffxiId: items.ffxiId,
+            })
+            .from(synthesisYieldItems)
+            .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
+            .where(
+                and(
+                    eq(synthesisYieldItems.synthesisId, synthesisId),
+                    eq(items.isExclusive, false), // item is sellable
+                    exists(
+                        // and we have auction data for it
+                        db
+                            .select()
+                            .from(itemAuctionPrices)
+                            .where(eq(itemAuctionPrices.itemId, items.id)),
+                    ),
+                ),
+            ),
+        db
+            .select({
+                itemId: synthesisIngredientItems.itemId,
+                name: items.name,
+                quantity: synthesisIngredientItems.quantity,
+                stackSize: items.stackSize,
+            })
+            .from(synthesisIngredientItems)
+            .innerJoin(items, eq(synthesisIngredientItems.itemId, items.id))
+            .where(eq(synthesisIngredientItems.synthesisId, synthesisId)),
+    ]);
+
+    if (yieldRows.length === 0) return null;
+
+    const itemIds = [
+        ...new Set([...yieldRows.map((r) => r.itemId), ...ingredientRows.map((r) => r.itemId)]),
+    ];
+
+    const mostRecentItemAuctionPriceSubquery = db
+        .select({
+            itemId: itemAuctionPrices.itemId,
+            maxAt: max(itemAuctionPrices.createdAt).as('max_at'),
+        })
+        .from(itemAuctionPrices)
+        .where(inArray(itemAuctionPrices.itemId, itemIds))
+        .groupBy(itemAuctionPrices.itemId)
+        .as('latest');
+
+    const [auctionPrices, vendorPrices] = await Promise.all([
+        db
+            .select({
+                itemId: itemAuctionPrices.itemId,
+                price: itemAuctionPrices.price,
+                stackPrice: itemAuctionPrices.stackPrice,
+            })
+            .from(itemAuctionPrices)
+            .innerJoin(
+                mostRecentItemAuctionPriceSubquery,
+                and(
+                    eq(itemAuctionPrices.itemId, mostRecentItemAuctionPriceSubquery.itemId),
+                    eq(itemAuctionPrices.createdAt, mostRecentItemAuctionPriceSubquery.maxAt),
+                ),
+            ),
+        db
+            .select({
+                itemId: itemVendorPrices.itemId,
+                minPrice: min(itemVendorPrices.price),
+            })
+            .from(itemVendorPrices)
+            .where(inArray(itemVendorPrices.itemId, itemIds))
+            .groupBy(itemVendorPrices.itemId),
+    ]);
+
+    const priceByItemId = new Map(auctionPrices.map((p) => [p.itemId, p]));
+    const vendorPriceByItemId = new Map(vendorPrices.map((v) => [v.itemId, v.minPrice]));
+
+    return {
+        yields: yieldRows.map((r) => {
+            const pricing = priceByItemId.get(r.itemId);
+
+            // for type checking; should never occur due to query filter
+            if (!pricing) {
+                throw new Error(
+                    `Invariant: yield itemId=${r.itemId} has no auction price (filtered by EXISTS)`,
+                );
+            }
+
+            return {
+                itemId: r.itemId,
+                name: r.name,
+                quantity: r.quantity,
+                price: pricing.price,
+                stackPrice: pricing.stackPrice ?? null,
+                stackSize: r.stackSize,
+            };
+        }),
+        ingredients: ingredientRows.map((r) => ({
+            itemId: r.itemId,
+            name: r.name,
+            quantity: r.quantity,
+            auctionPrice: priceByItemId.get(r.itemId)?.price ?? null,
+            auctionStackPrice: priceByItemId.get(r.itemId)?.stackPrice ?? null,
+            stackSize: r.stackSize,
+            vendorPrice: vendorPriceByItemId.get(r.itemId) ?? null,
+        })),
+    };
 };
 
 export const getItemForPricing = async (itemId: number): Promise<ItemPricingRow | null> => {

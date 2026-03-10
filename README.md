@@ -48,21 +48,23 @@ npm run enricher
 
 ```
 
-### Pricing
+### Pricing + Synthesis Profitability
 
-Key to this project is refreshing FFXIAH item prices.
+Key to this project is refreshing FFXIAH item prices + recalculating profitability as item prices update.
 
-To start the pricer (and schedule the midnight update for all items):
+To start the relevant services:
 ```sh
 npm run pricer
+npm run profitability
 ```
+**Note:** Starting the pricer also schedules a midnight update for prices.
 
 To push all the items into the queue for an update:
 ```sh
 npm run pricer:requeue
 ```
 
-To update prices for just a single item (e.g., https://www.ffxiah.com/item/<ffxiId>/slime-oil):
+To update prices for just a single item and all involved syntheses (e.g., https://www.ffxiah.com/item/<ffxiId>/slime-oil):
 ```sh
 npm run pricer:requeue -- <ffxiId>
 ```
