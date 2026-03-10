@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { formatGil } from '@/lib/utils';
+import { getCrystalColor } from '@/lib/craft-colors';
 
 const TIER_ORDER = ['NQ', 'HQ1', 'HQ2', 'HQ3'];
 
@@ -77,7 +78,13 @@ export const SynthesisRow = ({
             <TableCell className="text-center font-medium">
                 {synthesis.mainCraft.craftLevel}
             </TableCell>
-            <TableCell>{synthesis.crystal.name}</TableCell>
+            <TableCell>
+                <span
+                    className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${getCrystalColor(synthesis.crystal.name)}`}
+                >
+                    {synthesis.crystal.name}
+                </span>
+            </TableCell>
             <TableCell>
                 <ul className="space-y-1">
                     {sortedYields.map((y) => (

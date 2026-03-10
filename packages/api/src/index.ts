@@ -8,8 +8,10 @@ import {
     getSynthesesByCraft,
     getSynthesesByIngredientItemId,
     getSynthesesByYieldItemId,
+    getProfitableSyntheses,
     searchItemsByName,
 } from './queries.js';
+export * from './queries.js';
 import { closeDb } from '@ffxi-crafting/db';
 
 const app = new Hono()
@@ -35,7 +37,23 @@ const app = new Hono()
         if (isNaN(itemId)) return c.json({ error: 'Invalid itemId' }, 400);
         const syntheses = await getSynthesesByIngredientItemId(itemId);
         return c.json(syntheses);
-    });
+    })
+    .get(
+        '/api/syntheses/profitable',
+        zValidator(
+            'query',
+            z.object({
+                sortBy: z.enum(['single', 'stack']).optional(),
+                page: z.coerce.number().int().positive().optional(),
+                perPage: z.coerce.number().int().positive().max(100).optional(),
+            }),
+        ),
+        async (c) => {
+            const { sortBy, page, perPage } = c.req.valid('query');
+            const result = await getProfitableSyntheses({ sortBy, page, perPage });
+            return c.json(result);
+        },
+    );
 
 export type AppType = typeof app;
 

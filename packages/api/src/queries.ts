@@ -1,9 +1,10 @@
-import { and, desc, eq, ilike, inArray, max } from 'drizzle-orm';
+import { and, count, desc, eq, gte, ilike, inArray, max, min } from 'drizzle-orm';
 import { db } from '@ffxi-crafting/db';
 import {
     synthesisCraftRequirements,
     synthesisYieldItems,
     synthesisIngredientItems,
+    synthesisProfits,
     items,
     itemAuctionPrices,
     itemVendorPrices,
@@ -332,4 +333,279 @@ export const getSynthesesByIngredientItemId = async (
         .where(eq(synthesisIngredientItems.itemId, itemId));
 
     return assembleSynthesesByIds(rows.map((r) => r.synthesisId));
+};
+
+export type IngredientCost = {
+    itemId: number;
+    name: string;
+    quantity: number;
+    unitCost: number;
+    totalCost: number;
+};
+
+export type ProfitableSynthesis = {
+    id: number;
+    mainCraft: CraftRequirement;
+    subCrafts: CraftRequirement[];
+    crystal: string;
+    profitPerSingle: number;
+    profitPerStack: number | null;
+    nqYield: {
+        itemId: number;
+        name: string;
+        quantity: number;
+        auctionPrice: number;
+        auctionStackPrice: number | null;
+    };
+    ingredients: IngredientCost[];
+};
+
+export const getProfitableSyntheses = async ({
+    sortBy = 'single',
+    page = 1,
+    perPage = 25,
+}: {
+    sortBy?: 'single' | 'stack';
+    page?: number;
+    perPage?: number;
+}): Promise<{ syntheses: ProfitableSynthesis[]; total: number }> => {
+    const AVERAGE_SALES_RATE = 1;
+
+    const latestProfitSub = db
+        .select({
+            synthesisId: synthesisProfits.synthesisId,
+            maxAt: max(synthesisProfits.createdAt).as('max_profit_at'),
+        })
+        .from(synthesisProfits)
+        .groupBy(synthesisProfits.synthesisId)
+        .as('latest_profit');
+
+    // Subquery: latest auction price snapshot per item (for the sales rate filter)
+    const latestNqPriceSub = db
+        .select({
+            itemId: itemAuctionPrices.itemId,
+            maxAt: max(itemAuctionPrices.createdAt).as('max_nq_price_at'),
+        })
+        .from(itemAuctionPrices)
+        .groupBy(itemAuctionPrices.itemId)
+        .as('latest_nq_price');
+
+    const profitJoin = and(
+        eq(synthesisProfits.synthesisId, latestProfitSub.synthesisId),
+        eq(synthesisProfits.createdAt, latestProfitSub.maxAt),
+    );
+    const nqYieldJoin = and(
+        eq(synthesisYieldItems.synthesisId, synthesisProfits.synthesisId),
+        eq(synthesisYieldItems.tier, 'NQ'),
+    );
+    const nqPriceJoin = and(
+        eq(itemAuctionPrices.itemId, synthesisYieldItems.itemId),
+        eq(itemAuctionPrices.itemId, latestNqPriceSub.itemId),
+        eq(itemAuctionPrices.createdAt, latestNqPriceSub.maxAt),
+    );
+
+    const sortCol =
+        sortBy === 'stack' ? synthesisProfits.profitPerStack : synthesisProfits.profitPerSingle;
+
+    const baseQuery = db
+        .select({
+            synthesisId: synthesisProfits.synthesisId,
+            profitPerSingle: synthesisProfits.profitPerSingle,
+            profitPerStack: synthesisProfits.profitPerStack,
+        })
+        .from(synthesisProfits)
+        .innerJoin(latestProfitSub, profitJoin)
+        .innerJoin(synthesisYieldItems, nqYieldJoin)
+        .innerJoin(latestNqPriceSub, eq(latestNqPriceSub.itemId, synthesisYieldItems.itemId))
+        .innerJoin(itemAuctionPrices, nqPriceJoin)
+        .where(gte(itemAuctionPrices.salesPerDay, AVERAGE_SALES_RATE));
+
+    const [profitRows, [{ total }]] = await Promise.all([
+        baseQuery
+            .orderBy(desc(sortCol))
+            .limit(perPage)
+            .offset((page - 1) * perPage),
+        db
+            .select({ total: count() })
+            .from(synthesisProfits)
+            .innerJoin(latestProfitSub, profitJoin)
+            .innerJoin(synthesisYieldItems, nqYieldJoin)
+            .innerJoin(latestNqPriceSub, eq(latestNqPriceSub.itemId, synthesisYieldItems.itemId))
+            .innerJoin(itemAuctionPrices, nqPriceJoin)
+            .where(gte(itemAuctionPrices.salesPerDay, AVERAGE_SALES_RATE)),
+    ]);
+
+    if (profitRows.length === 0) return { syntheses: [], total };
+
+    const synthesisIds = profitRows.map((r) => r.synthesisId);
+    const profitBySynthesisId = new Map(profitRows.map((r) => [r.synthesisId, r]));
+
+    const [craftRows, nqYieldRows, ingredientRows] = await Promise.all([
+        db
+            .select({
+                synthesisId: synthesisCraftRequirements.synthesisId,
+                craft: synthesisCraftRequirements.craft,
+                craftLevel: synthesisCraftRequirements.craftLevel,
+                isMain: synthesisCraftRequirements.isMain,
+            })
+            .from(synthesisCraftRequirements)
+            .where(inArray(synthesisCraftRequirements.synthesisId, synthesisIds)),
+        db
+            .select({
+                synthesisId: synthesisYieldItems.synthesisId,
+                itemId: items.id,
+                name: items.name,
+                quantity: synthesisYieldItems.quantity,
+            })
+            .from(synthesisYieldItems)
+            .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
+            .where(
+                and(
+                    inArray(synthesisYieldItems.synthesisId, synthesisIds),
+                    eq(synthesisYieldItems.tier, 'NQ'),
+                ),
+            ),
+        db
+            .select({
+                synthesisId: synthesisIngredientItems.synthesisId,
+                itemId: items.id,
+                name: items.name,
+                quantity: synthesisIngredientItems.quantity,
+                stackSize: items.stackSize,
+            })
+            .from(synthesisIngredientItems)
+            .innerJoin(items, eq(synthesisIngredientItems.itemId, items.id))
+            .where(inArray(synthesisIngredientItems.synthesisId, synthesisIds)),
+    ]);
+
+    const allItemIds = [
+        ...new Set([...nqYieldRows.map((r) => r.itemId), ...ingredientRows.map((r) => r.itemId)]),
+    ];
+
+    const latestAuctionSub = db
+        .select({
+            itemId: itemAuctionPrices.itemId,
+            maxAt: max(itemAuctionPrices.createdAt).as('max_at'),
+        })
+        .from(itemAuctionPrices)
+        .where(inArray(itemAuctionPrices.itemId, allItemIds))
+        .groupBy(itemAuctionPrices.itemId)
+        .as('latest_auction');
+
+    const [auctionRows, vendorRows] = await Promise.all([
+        db
+            .select({
+                itemId: itemAuctionPrices.itemId,
+                price: itemAuctionPrices.price,
+                stackPrice: itemAuctionPrices.stackPrice,
+            })
+            .from(itemAuctionPrices)
+            .innerJoin(
+                latestAuctionSub,
+                and(
+                    eq(itemAuctionPrices.itemId, latestAuctionSub.itemId),
+                    eq(itemAuctionPrices.createdAt, latestAuctionSub.maxAt),
+                ),
+            ),
+        db
+            .select({
+                itemId: itemVendorPrices.itemId,
+                minPrice: min(itemVendorPrices.price).as('min_price'),
+            })
+            .from(itemVendorPrices)
+            .where(inArray(itemVendorPrices.itemId, allItemIds))
+            .groupBy(itemVendorPrices.itemId),
+    ]);
+
+    const auctionByItemId = new Map(auctionRows.map((r) => [r.itemId, r]));
+    const vendorMinByItemId = new Map(vendorRows.map((r) => [r.itemId, r.minPrice]));
+
+    // Group craft rows by synthesisId
+    const craftsBySynthesis = new Map<
+        number,
+        { mainCraft: CraftRequirement; subCrafts: CraftRequirement[] }
+    >();
+    for (const row of craftRows) {
+        if (!craftsBySynthesis.has(row.synthesisId)) {
+            craftsBySynthesis.set(row.synthesisId, {
+                mainCraft: { craft: row.craft as Craft, craftLevel: row.craftLevel },
+                subCrafts: [],
+            });
+        }
+        const entry = craftsBySynthesis.get(row.synthesisId)!;
+        if (row.isMain) {
+            entry.mainCraft = { craft: row.craft as Craft, craftLevel: row.craftLevel };
+        } else {
+            entry.subCrafts.push({ craft: row.craft as Craft, craftLevel: row.craftLevel });
+        }
+    }
+
+    // First NQ yield per synthesis
+    const nqYieldBySynthesis = new Map<number, (typeof nqYieldRows)[number]>();
+    for (const row of nqYieldRows) {
+        if (!nqYieldBySynthesis.has(row.synthesisId)) nqYieldBySynthesis.set(row.synthesisId, row);
+    }
+
+    // Group ingredients by synthesisId
+    const ingredientsBySynthesis = new Map<number, typeof ingredientRows>();
+    for (const row of ingredientRows) {
+        if (!ingredientsBySynthesis.has(row.synthesisId))
+            ingredientsBySynthesis.set(row.synthesisId, []);
+        ingredientsBySynthesis.get(row.synthesisId)!.push(row);
+    }
+
+    const syntheses: ProfitableSynthesis[] = [];
+    for (const sid of synthesisIds) {
+        const profit = profitBySynthesisId.get(sid);
+        const crafts = craftsBySynthesis.get(sid);
+        const nqYieldRow = nqYieldBySynthesis.get(sid);
+        if (!profit || !crafts || !nqYieldRow) continue;
+
+        const nqAuction = auctionByItemId.get(nqYieldRow.itemId);
+        if (!nqAuction) continue;
+
+        const allIngredients = ingredientsBySynthesis.get(sid) ?? [];
+        const crystalRow = allIngredients.find((i) => CRYSTAL_NAMES.has(i.name));
+        const nonCrystalIngredients = allIngredients.filter((i) => !CRYSTAL_NAMES.has(i.name));
+        if (!crystalRow) continue;
+
+        const ingredients: IngredientCost[] = nonCrystalIngredients.map((ing) => {
+            const auction = auctionByItemId.get(ing.itemId);
+            const vendorPrice = vendorMinByItemId.get(ing.itemId) ?? null;
+            const perUnitFromSingle = auction?.price ?? Infinity;
+            const perUnitFromStack =
+                auction?.stackPrice != null && ing.stackSize > 1
+                    ? auction.stackPrice / ing.stackSize
+                    : Infinity;
+            const perUnitFromVendor = vendorPrice ?? Infinity;
+            const unitCost = Math.min(perUnitFromSingle, perUnitFromStack, perUnitFromVendor);
+            const resolvedCost = isFinite(unitCost) ? Math.round(unitCost) : 0;
+            return {
+                itemId: ing.itemId,
+                name: ing.name,
+                quantity: ing.quantity,
+                unitCost: resolvedCost,
+                totalCost: resolvedCost * ing.quantity,
+            };
+        });
+
+        syntheses.push({
+            id: sid,
+            mainCraft: crafts.mainCraft,
+            subCrafts: crafts.subCrafts,
+            crystal: crystalRow.name,
+            profitPerSingle: profit.profitPerSingle,
+            profitPerStack: profit.profitPerStack,
+            nqYield: {
+                itemId: nqYieldRow.itemId,
+                name: nqYieldRow.name,
+                quantity: nqYieldRow.quantity,
+                auctionPrice: nqAuction.price,
+                auctionStackPrice: nqAuction.stackPrice,
+            },
+            ingredients,
+        });
+    }
+
+    return { syntheses, total };
 };

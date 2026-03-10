@@ -6,6 +6,7 @@ import { CRAFTS } from '@ffxi-crafting/types';
 import type { Craft } from '@ffxi-crafting/types';
 import { SynthesisRow } from '@/SynthesisRow';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getCraftColor } from '@/lib/craft-colors';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const client = hc<AppType>('/');
@@ -53,7 +54,11 @@ const CraftsPage = () => {
                 <SelectContent>
                     {CRAFTS.map((c) => (
                         <SelectItem key={c} value={c}>
-                            {c}
+                            <span
+                                className={`mr-1.5 inline-block rounded px-1.5 py-0.5 text-xs font-medium ${getCraftColor(c)}`}
+                            >
+                                {c}
+                            </span>
                         </SelectItem>
                     ))}
                 </SelectContent>
