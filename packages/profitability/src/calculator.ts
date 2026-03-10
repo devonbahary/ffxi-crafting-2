@@ -6,6 +6,8 @@ export type YieldPricing = {
     quantity: number;
     price: number;
     stackPrice: number | null;
+    salesPerDay: number;
+    stackSalesPerDay: number | null;
     stackSize: number;
 };
 

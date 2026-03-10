@@ -77,7 +77,7 @@ const ExpandedRow = ({ synthesis }: { synthesis: ProfitableSynthesis }) => {
 
 const SynthesisPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const sortBy = (searchParams.get('sortBy') ?? 'single') as 'single' | 'stack';
+    const sortBy = (searchParams.get('sortBy') ?? 'single') as 'single' | 'stack' | 'best';
     const page = parseInt(searchParams.get('page') ?? '1', 10);
 
     const [data, setData] = useState<{ syntheses: ProfitableSynthesis[]; total: number } | null>(
@@ -109,7 +109,7 @@ const SynthesisPage = () => {
 
     const totalPages = data ? Math.ceil(data.total / PER_PAGE) : 1;
 
-    const setSort = (value: 'single' | 'stack') =>
+    const setSort = (value: 'single' | 'stack' | 'best') =>
         setSearchParams({ sortBy: value, page: '1' });
     const setPage = (p: number) => setSearchParams({ sortBy, page: String(p) });
 
@@ -118,13 +118,14 @@ const SynthesisPage = () => {
             <h1 className="mb-6 text-2xl font-bold">Profitable Syntheses</h1>
 
             <div className="mb-4 flex items-center gap-4">
-                <Select value={sortBy} onValueChange={(v) => setSort(v as 'single' | 'stack')}>
+                <Select value={sortBy} onValueChange={(v) => setSort(v as 'single' | 'stack' | 'best')}>
                     <SelectTrigger className="w-48">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="single">By Single Profit</SelectItem>
                         <SelectItem value="stack">By Stack Profit</SelectItem>
+                        <SelectItem value="best">Best of Either</SelectItem>
                     </SelectContent>
                 </Select>
                 {data && (

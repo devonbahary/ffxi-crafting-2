@@ -108,10 +108,14 @@ export const upsertSynthesisProfit = async ({
     synthesisId,
     profitPerSingle,
     profitPerStack,
+    salesPerDay,
+    stackSalesPerDay,
 }: {
     synthesisId: number;
     profitPerSingle: number;
     profitPerStack: number | null;
+    salesPerDay: number;
+    stackSalesPerDay: number | null;
 }): Promise<void> => {
     const recent = await db
         .select({ id: synthesisProfits.id })
@@ -132,10 +136,16 @@ export const upsertSynthesisProfit = async ({
     if (recent) {
         await db
             .update(synthesisProfits)
-            .set({ profitPerSingle, profitPerStack })
+            .set({ profitPerSingle, profitPerStack, salesPerDay, stackSalesPerDay })
             .where(eq(synthesisProfits.id, recent.id));
     } else {
-        await db.insert(synthesisProfits).values({ synthesisId, profitPerSingle, profitPerStack });
+        await db.insert(synthesisProfits).values({
+            synthesisId,
+            profitPerSingle,
+            profitPerStack,
+            salesPerDay,
+            stackSalesPerDay,
+        });
     }
 };
 

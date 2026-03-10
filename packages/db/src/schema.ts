@@ -139,6 +139,8 @@ export const synthesisProfits = pgTable(
             .notNull(),
         profitPerSingle: integer('profit_per_single').notNull(),
         profitPerStack: integer('profit_per_stack'),
+        salesPerDay: real('sales_per_day'),
+        stackSalesPerDay: real('stack_sales_per_day'),
         createdAt: timestamp('created_at').notNull().defaultNow(),
     },
     (t) => [index('synthesis_profits_synthesis_id_created_at_idx').on(t.synthesisId, t.createdAt)],

@@ -5,6 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "tsx src/index.ts",
+        "requeue": "tsx src/requeue.ts",
         "build": "tsc --build",
         "typecheck": "tsc --noEmit",
         "start": "node dist/index.js"

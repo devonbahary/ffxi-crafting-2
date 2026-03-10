@@ -82,6 +82,8 @@ type SynthesisProfitabilityData = {
         quantity: number;
         price: number;
         stackPrice: number | null;
+        salesPerDay: number;
+        stackSalesPerDay: number | null;
         stackSize: number;
     }[];
     ingredients: {
@@ -156,6 +158,8 @@ export const getSynthesisProfitabilityData = async (
                 itemId: itemAuctionPrices.itemId,
                 price: itemAuctionPrices.price,
                 stackPrice: itemAuctionPrices.stackPrice,
+                salesPerDay: itemAuctionPrices.salesPerDay,
+                stackSalesPerDay: itemAuctionPrices.stackSalesPerDay,
             })
             .from(itemAuctionPrices)
             .innerJoin(
@@ -195,6 +199,8 @@ export const getSynthesisProfitabilityData = async (
                 quantity: r.quantity,
                 price: pricing.price,
                 stackPrice: pricing.stackPrice ?? null,
+                salesPerDay: pricing.salesPerDay,
+                stackSalesPerDay: pricing.stackSalesPerDay ?? null,
                 stackSize: r.stackSize,
             };
         }),

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, ilike, inArray, max, min } from 'drizzle-orm';
+import { and, count, desc, eq, gte, ilike, inArray, max, min, sql } from 'drizzle-orm';
 import { db } from '@ffxi-crafting/db';
 import {
     synthesisCraftRequirements,
@@ -365,7 +365,7 @@ export const getProfitableSyntheses = async ({
     page = 1,
     perPage = 25,
 }: {
-    sortBy?: 'single' | 'stack';
+    sortBy?: 'single' | 'stack' | 'best';
     page?: number;
     perPage?: number;
 }): Promise<{ syntheses: ProfitableSynthesis[]; total: number }> => {
@@ -380,59 +380,47 @@ export const getProfitableSyntheses = async ({
         .groupBy(synthesisProfits.synthesisId)
         .as('latest_profit');
 
-    // Subquery: latest auction price snapshot per item (for the sales rate filter)
-    const latestNqPriceSub = db
-        .select({
-            itemId: itemAuctionPrices.itemId,
-            maxAt: max(itemAuctionPrices.createdAt).as('max_nq_price_at'),
-        })
-        .from(itemAuctionPrices)
-        .groupBy(itemAuctionPrices.itemId)
-        .as('latest_nq_price');
-
     const profitJoin = and(
         eq(synthesisProfits.synthesisId, latestProfitSub.synthesisId),
         eq(synthesisProfits.createdAt, latestProfitSub.maxAt),
     );
-    const nqYieldJoin = and(
-        eq(synthesisYieldItems.synthesisId, synthesisProfits.synthesisId),
-        eq(synthesisYieldItems.tier, 'NQ'),
-    );
-    const nqPriceJoin = and(
-        eq(itemAuctionPrices.itemId, synthesisYieldItems.itemId),
-        eq(itemAuctionPrices.itemId, latestNqPriceSub.itemId),
-        eq(itemAuctionPrices.createdAt, latestNqPriceSub.maxAt),
-    );
 
-    const sortCol =
-        sortBy === 'stack' ? synthesisProfits.profitPerStack : synthesisProfits.profitPerSingle;
+    // Filter: only syntheses where the relevant sale mode meets Average sales rate
+    const eligibilityFilter =
+        sortBy === 'single'
+            ? gte(synthesisProfits.salesPerDay, AVERAGE_SALES_RATE)
+            : sortBy === 'stack'
+              ? gte(synthesisProfits.stackSalesPerDay, AVERAGE_SALES_RATE)
+              : sql`(${synthesisProfits.salesPerDay} >= ${AVERAGE_SALES_RATE} OR ${synthesisProfits.stackSalesPerDay} >= ${AVERAGE_SALES_RATE})`;
 
-    const baseQuery = db
-        .select({
-            synthesisId: synthesisProfits.synthesisId,
-            profitPerSingle: synthesisProfits.profitPerSingle,
-            profitPerStack: synthesisProfits.profitPerStack,
-        })
-        .from(synthesisProfits)
-        .innerJoin(latestProfitSub, profitJoin)
-        .innerJoin(synthesisYieldItems, nqYieldJoin)
-        .innerJoin(latestNqPriceSub, eq(latestNqPriceSub.itemId, synthesisYieldItems.itemId))
-        .innerJoin(itemAuctionPrices, nqPriceJoin)
-        .where(gte(itemAuctionPrices.salesPerDay, AVERAGE_SALES_RATE));
+    // Sort: by the relevant profit column, or the best of the two
+    const sortExpr =
+        sortBy === 'single'
+            ? desc(synthesisProfits.profitPerSingle)
+            : sortBy === 'stack'
+              ? desc(synthesisProfits.profitPerStack)
+              : desc(
+                    sql`GREATEST(${synthesisProfits.profitPerSingle}, COALESCE(${synthesisProfits.profitPerStack}, ${synthesisProfits.profitPerSingle}))`,
+                );
 
     const [profitRows, [{ total }]] = await Promise.all([
-        baseQuery
-            .orderBy(desc(sortCol))
+        db
+            .select({
+                synthesisId: synthesisProfits.synthesisId,
+                profitPerSingle: synthesisProfits.profitPerSingle,
+                profitPerStack: synthesisProfits.profitPerStack,
+            })
+            .from(synthesisProfits)
+            .innerJoin(latestProfitSub, profitJoin)
+            .where(eligibilityFilter)
+            .orderBy(sortExpr)
             .limit(perPage)
             .offset((page - 1) * perPage),
         db
             .select({ total: count() })
             .from(synthesisProfits)
             .innerJoin(latestProfitSub, profitJoin)
-            .innerJoin(synthesisYieldItems, nqYieldJoin)
-            .innerJoin(latestNqPriceSub, eq(latestNqPriceSub.itemId, synthesisYieldItems.itemId))
-            .innerJoin(itemAuctionPrices, nqPriceJoin)
-            .where(gte(itemAuctionPrices.salesPerDay, AVERAGE_SALES_RATE)),
+            .where(eligibilityFilter),
     ]);
 
     if (profitRows.length === 0) return { syntheses: [], total };

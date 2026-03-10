@@ -7,9 +7,7 @@ export type PriceJob = {
     itemId: number;
 };
 
-export type ProfitJob = {
-    itemId: number;
-};
+export type ProfitJob = { itemId: number } | { synthesisId: number };
 
 export const CRAFTS = [
     'Alchemy',

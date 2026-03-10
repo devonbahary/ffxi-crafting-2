@@ -43,7 +43,7 @@ const app = new Hono()
         zValidator(
             'query',
             z.object({
-                sortBy: z.enum(['single', 'stack']).optional(),
+                sortBy: z.enum(['single', 'stack', 'best']).optional(),
                 page: z.coerce.number().int().positive().optional(),
                 perPage: z.coerce.number().int().positive().max(100).optional(),
             }),
