@@ -1,10 +1,14 @@
-import { and, count, desc, eq, gte, ilike, inArray, max, min, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, ilike, inArray, max, sql } from 'drizzle-orm';
+import { getSynthesisHqResult } from './hq.js';
+import type { PlayerSkills } from './hq.js';
 import { db } from '@ffxi-crafting/db';
 import {
     synthesisCraftRequirements,
     synthesisYieldItems,
     synthesisIngredientItems,
     synthesisProfits,
+    synthesisProfitIngredients,
+    synthesisProfitYieldTiers,
     items,
     itemAuctionPrices,
     itemVendorPrices,
@@ -335,10 +339,28 @@ export const getSynthesesByIngredientItemId = async (
     return assembleSynthesesByIds(rows.map((r) => r.synthesisId));
 };
 
+export type HqYieldTier = {
+    tier: 'HQ1' | 'HQ2' | 'HQ3';
+    items: {
+        itemId: number;
+        name: string;
+        quantity: number;
+        stackSize: number;
+        auctionPrice: number | null;
+        auctionStackPrice: number | null;
+        revenueSource: 'single' | 'stack';
+        revenue: number;
+    }[];
+};
+
 export type IngredientCost = {
     itemId: number;
     name: string;
     quantity: number;
+    auctionSinglePerUnit: number | null;
+    auctionStackPerUnit: number | null;
+    vendorPerUnit: number | null;
+    priceSource: 'ah_single' | 'ah_stack' | 'vendor';
     unitCost: number;
     totalCost: number;
 };
@@ -350,12 +372,22 @@ export type ProfitableSynthesis = {
     crystal: string;
     profitPerSingle: number;
     profitPerStack: number | null;
+    dailyProfitSingle: number | null;
+    dailyProfitStack: number | null;
+    salesPerDay: number | null;
+    stackSalesPerDay: number | null;
+    expectedProfitPerSingle: number | null;
+    expectedProfitPerStack: number | null;
+    hqYields: HqYieldTier[];
     nqYield: {
         itemId: number;
         name: string;
         quantity: number;
-        auctionPrice: number;
+        stackSize: number;
+        auctionPrice: number | null;
         auctionStackPrice: number | null;
+        revenueSource: 'single' | 'stack';
+        revenue: number;
     };
     ingredients: IngredientCost[];
 };
@@ -364,12 +396,29 @@ export const getProfitableSyntheses = async ({
     sortBy = 'single',
     page = 1,
     perPage = 25,
+    skills,
+    yieldName,
 }: {
-    sortBy?: 'single' | 'stack' | 'best';
+    sortBy?: 'single' | 'stack' | 'best' | 'daily';
     page?: number;
     perPage?: number;
+    skills?: PlayerSkills;
+    yieldName?: string;
 }): Promise<{ syntheses: ProfitableSynthesis[]; total: number }> => {
     const AVERAGE_SALES_RATE = 1;
+    const hasSkills = skills && Object.keys(skills).length > 0;
+
+    // Pre-filter by NQ yield name if provided
+    let nameFilteredIds: Set<number> | null = null;
+    if (yieldName) {
+        const rows = await db
+            .selectDistinct({ synthesisId: synthesisYieldItems.synthesisId })
+            .from(synthesisYieldItems)
+            .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
+            .where(and(eq(synthesisYieldItems.tier, 'NQ'), ilike(items.name, `%${yieldName}%`)));
+        if (rows.length === 0) return { syntheses: [], total: 0 };
+        nameFilteredIds = new Set(rows.map((r) => r.synthesisId));
+    }
 
     const latestProfitSub = db
         .select({
@@ -385,34 +434,376 @@ export const getProfitableSyntheses = async ({
         eq(synthesisProfits.createdAt, latestProfitSub.maxAt),
     );
 
-    // Filter: only syntheses where the relevant sale mode meets Average sales rate
-    const eligibilityFilter =
-        sortBy === 'single'
-            ? gte(synthesisProfits.salesPerDay, AVERAGE_SALES_RATE)
-            : sortBy === 'stack'
-              ? gte(synthesisProfits.stackSalesPerDay, AVERAGE_SALES_RATE)
-              : sql`(${synthesisProfits.salesPerDay} >= ${AVERAGE_SALES_RATE} OR ${synthesisProfits.stackSalesPerDay} >= ${AVERAGE_SALES_RATE})`;
+    // Filter: only syntheses where the relevant sale mode meets Average sales rate.
+    // When searching by name the user is looking for a specific synthesis, so sales rate is not applied.
+    const eligibilityFilter = yieldName
+        ? undefined
+        : sortBy === 'single'
+          ? gte(synthesisProfits.salesPerDay, AVERAGE_SALES_RATE)
+          : sortBy === 'stack'
+            ? gte(synthesisProfits.stackSalesPerDay, AVERAGE_SALES_RATE)
+            : sql`(${synthesisProfits.salesPerDay} >= ${AVERAGE_SALES_RATE} OR ${synthesisProfits.stackSalesPerDay} >= ${AVERAGE_SALES_RATE})`;
 
-    // Sort: by the relevant profit column, or the best of the two
+    // Shared helper: build craft requirements map from DB rows
+    type CraftRow = {
+        synthesisId: number;
+        craft: string;
+        craftLevel: number;
+        isMain: boolean;
+    };
+    const buildCraftsBySynthesis = (craftRows: CraftRow[]) => {
+        const map = new Map<
+            number,
+            { mainCraft: CraftRequirement; subCrafts: CraftRequirement[] }
+        >();
+        for (const row of craftRows) {
+            if (!map.has(row.synthesisId)) {
+                map.set(row.synthesisId, {
+                    mainCraft: { craft: row.craft as Craft, craftLevel: row.craftLevel },
+                    subCrafts: [],
+                });
+            }
+            const entry = map.get(row.synthesisId)!;
+            if (row.isMain) {
+                entry.mainCraft = { craft: row.craft as Craft, craftLevel: row.craftLevel };
+            } else {
+                entry.subCrafts.push({ craft: row.craft as Craft, craftLevel: row.craftLevel });
+            }
+        }
+        return map;
+    };
+
+    // Shared helper: assemble ProfitableSynthesis from snapshot rows + crystal name lookup
+    const assembleSynthesisFromSnapshot = (
+        sid: number,
+        snapshotId: number,
+        profit: {
+            profitPerSingle: number;
+            profitPerStack: number | null;
+            dailyProfitSingle: number | null;
+            dailyProfitStack: number | null;
+            salesPerDay: number | null;
+            stackSalesPerDay: number | null;
+            expectedProfitT0: number;
+            expectedProfitT1: number;
+            expectedProfitT2: number;
+            expectedProfitT3: number;
+            expectedProfitStackT0: number | null;
+            expectedProfitStackT1: number | null;
+            expectedProfitStackT2: number | null;
+            expectedProfitStackT3: number | null;
+        },
+        crafts: { mainCraft: CraftRequirement; subCrafts: CraftRequirement[] },
+        crystalName: string,
+        expectedProfitPerSingle: number | null,
+        expectedProfitPerStack: number | null,
+        snapshotIngredients: typeof allSnapshotIngredients,
+        snapshotYieldTiers: typeof allSnapshotYieldTiers,
+    ): ProfitableSynthesis | null => {
+        const ingRows = snapshotIngredients.filter((r) => r.snapshotId === snapshotId);
+        const yieldRows = snapshotYieldTiers.filter((r) => r.snapshotId === snapshotId);
+
+        const nqYieldRow = yieldRows.find((r) => r.tier === 'NQ');
+        if (!nqYieldRow) return null;
+
+        const ingredients: IngredientCost[] = ingRows.map((r) => ({
+            itemId: r.itemId,
+            name: r.name,
+            quantity: r.quantity,
+            auctionSinglePerUnit: r.auctionSinglePerUnit,
+            auctionStackPerUnit: r.auctionStackPerUnit,
+            vendorPerUnit: r.vendorPerUnit,
+            priceSource: r.priceSource,
+            unitCost: r.unitCost,
+            totalCost: r.totalCost,
+        }));
+
+        const hqYields: HqYieldTier[] = (['HQ1', 'HQ2', 'HQ3'] as const)
+            .map((tier) => ({
+                tier,
+                items: yieldRows
+                    .filter((r) => r.tier === tier)
+                    .map((r) => ({
+                        itemId: r.itemId,
+                        name: r.name,
+                        quantity: r.quantity,
+                        stackSize: r.stackSize,
+                        auctionPrice: r.auctionSinglePerUnit,
+                        auctionStackPrice:
+                            r.auctionStackPerUnit !== null
+                                ? r.auctionStackPerUnit * r.stackSize
+                                : null,
+                        revenueSource: r.revenueSource,
+                        revenue: r.revenue,
+                    })),
+            }))
+            .filter((t) => t.items.length > 0);
+
+        return {
+            id: sid,
+            mainCraft: crafts.mainCraft,
+            subCrafts: crafts.subCrafts,
+            crystal: crystalName,
+            profitPerSingle: profit.profitPerSingle,
+            profitPerStack: profit.profitPerStack,
+            dailyProfitSingle: profit.dailyProfitSingle,
+            dailyProfitStack: profit.dailyProfitStack,
+            salesPerDay: profit.salesPerDay,
+            stackSalesPerDay: profit.stackSalesPerDay,
+            expectedProfitPerSingle,
+            expectedProfitPerStack,
+            hqYields,
+            nqYield: {
+                itemId: nqYieldRow.itemId,
+                name: nqYieldRow.name,
+                quantity: nqYieldRow.quantity,
+                stackSize: nqYieldRow.stackSize,
+                auctionPrice: nqYieldRow.auctionSinglePerUnit,
+                auctionStackPrice:
+                    nqYieldRow.auctionStackPerUnit !== null
+                        ? nqYieldRow.auctionStackPerUnit * nqYieldRow.stackSize
+                        : null,
+                revenueSource: nqYieldRow.revenueSource,
+                revenue: nqYieldRow.revenue,
+            },
+            ingredients,
+        };
+    };
+
+    // These are declared outside the paths so assembleSynthesisFromSnapshot can reference them
+    let allSnapshotIngredients: {
+        snapshotId: number;
+        itemId: number;
+        name: string;
+        quantity: number;
+        auctionSinglePerUnit: number | null;
+        auctionStackPerUnit: number | null;
+        vendorPerUnit: number | null;
+        unitCost: number;
+        priceSource: 'ah_single' | 'ah_stack' | 'vendor';
+        totalCost: number;
+    }[] = [];
+    let allSnapshotYieldTiers: {
+        snapshotId: number;
+        tier: 'NQ' | 'HQ1' | 'HQ2' | 'HQ3';
+        itemId: number;
+        name: string;
+        quantity: number;
+        stackSize: number;
+        auctionSinglePerUnit: number | null;
+        auctionStackPerUnit: number | null;
+        revenue: number;
+        revenueSource: 'single' | 'stack';
+    }[] = [];
+
+    // ── HQ path ──────────────────────────────────────────────────────────────
+    if (hasSkills) {
+        // Fetch all eligible syntheses (no pagination — we sort in memory)
+        const rawProfitRows = await db
+            .select({
+                id: synthesisProfits.id,
+                synthesisId: synthesisProfits.synthesisId,
+                profitPerSingle: synthesisProfits.profitPerSingle,
+                profitPerStack: synthesisProfits.profitPerStack,
+                dailyProfitSingle: synthesisProfits.dailyProfitSingle,
+                dailyProfitStack: synthesisProfits.dailyProfitStack,
+                salesPerDay: synthesisProfits.salesPerDay,
+                stackSalesPerDay: synthesisProfits.stackSalesPerDay,
+                expectedProfitT0: synthesisProfits.expectedProfitT0,
+                expectedProfitT1: synthesisProfits.expectedProfitT1,
+                expectedProfitT2: synthesisProfits.expectedProfitT2,
+                expectedProfitT3: synthesisProfits.expectedProfitT3,
+                expectedProfitStackT0: synthesisProfits.expectedProfitStackT0,
+                expectedProfitStackT1: synthesisProfits.expectedProfitStackT1,
+                expectedProfitStackT2: synthesisProfits.expectedProfitStackT2,
+                expectedProfitStackT3: synthesisProfits.expectedProfitStackT3,
+            })
+            .from(synthesisProfits)
+            .innerJoin(latestProfitSub, profitJoin)
+            .where(eligibilityFilter);
+
+        const allProfitRows = nameFilteredIds
+            ? rawProfitRows.filter((r) => nameFilteredIds!.has(r.synthesisId))
+            : rawProfitRows;
+
+        if (allProfitRows.length === 0) return { syntheses: [], total: 0 };
+
+        const allSynthesisIds = allProfitRows.map((r) => r.synthesisId);
+        const profitBySynthesisId = new Map(allProfitRows.map((r) => [r.synthesisId, r]));
+
+        // Fetch craft requirements for tier determination
+        const craftRows = await db
+            .select({
+                synthesisId: synthesisCraftRequirements.synthesisId,
+                craft: synthesisCraftRequirements.craft,
+                craftLevel: synthesisCraftRequirements.craftLevel,
+                isMain: synthesisCraftRequirements.isMain,
+            })
+            .from(synthesisCraftRequirements)
+            .where(inArray(synthesisCraftRequirements.synthesisId, allSynthesisIds));
+
+        const craftsBySynthesis = buildCraftsBySynthesis(craftRows);
+
+        // Compute expected profit per synthesis using pre-computed columns
+        type WithExpected = {
+            sid: number;
+            snapshotId: number;
+            expectedProfitPerSingle: number;
+            expectedProfitPerStack: number | null;
+            sortValue: number;
+        };
+        const withExpected: WithExpected[] = [];
+        const hqResultBySynthesis = new Map<number, ReturnType<typeof getSynthesisHqResult>>();
+
+        for (const row of allProfitRows) {
+            const crafts = craftsBySynthesis.get(row.synthesisId);
+            if (!crafts) continue;
+
+            const allCrafts = [crafts.mainCraft, ...crafts.subCrafts];
+            const hqResult = getSynthesisHqResult(allCrafts, skills!);
+            hqResultBySynthesis.set(row.synthesisId, hqResult);
+
+            const tier = hqResult.tier;
+            if (tier === -1) continue;
+
+            let expectedProfitPerSingle: number;
+            if (tier === 0) {
+                expectedProfitPerSingle = row.expectedProfitT0;
+            } else if (tier === 1) {
+                expectedProfitPerSingle = row.expectedProfitT1;
+            } else if (tier === 2) {
+                expectedProfitPerSingle = row.expectedProfitT2;
+            } else {
+                expectedProfitPerSingle = row.expectedProfitT3;
+            }
+
+            const stackT =
+                tier === -1 || tier === 0
+                    ? row.expectedProfitStackT0
+                    : tier === 1
+                      ? row.expectedProfitStackT1
+                      : tier === 2
+                        ? row.expectedProfitStackT2
+                        : row.expectedProfitStackT3;
+            const expectedProfitPerStack = stackT ?? null;
+
+            const sortValue =
+                sortBy === 'daily'
+                    ? expectedProfitPerSingle * (row.salesPerDay ?? 0)
+                    : expectedProfitPerSingle;
+
+            withExpected.push({
+                sid: row.synthesisId,
+                snapshotId: row.id,
+                expectedProfitPerSingle,
+                expectedProfitPerStack,
+                sortValue,
+            });
+        }
+
+        withExpected.sort((a, b) => b.sortValue - a.sortValue);
+        const total = withExpected.length;
+        const pageItems = withExpected.slice((page - 1) * perPage, page * perPage);
+        const expectedBySid = new Map(withExpected.map((r) => [r.sid, r]));
+
+        const snapshotIds = pageItems.map((r) => r.snapshotId);
+        const pageSids = pageItems.map((r) => r.sid);
+
+        // Fetch crystal names for page syntheses
+        const crystalRows = await db
+            .select({
+                synthesisId: synthesisIngredientItems.synthesisId,
+                name: items.name,
+            })
+            .from(synthesisIngredientItems)
+            .innerJoin(items, eq(synthesisIngredientItems.itemId, items.id))
+            .where(inArray(synthesisIngredientItems.synthesisId, pageSids));
+
+        const crystalBySynthesisId = new Map<number, string>();
+        for (const row of crystalRows) {
+            if (CRYSTAL_NAMES.has(row.name)) {
+                crystalBySynthesisId.set(row.synthesisId, row.name);
+            }
+        }
+
+        // Fetch snapshot data for page
+        [allSnapshotIngredients, allSnapshotYieldTiers] = await Promise.all([
+            db
+                .select()
+                .from(synthesisProfitIngredients)
+                .where(inArray(synthesisProfitIngredients.snapshotId, snapshotIds)),
+            db
+                .select()
+                .from(synthesisProfitYieldTiers)
+                .where(inArray(synthesisProfitYieldTiers.snapshotId, snapshotIds)),
+        ]);
+
+        const syntheses: ProfitableSynthesis[] = [];
+        for (const item of pageItems) {
+            const profit = profitBySynthesisId.get(item.sid);
+            const crafts = craftsBySynthesis.get(item.sid);
+            const crystalName = crystalBySynthesisId.get(item.sid);
+            if (!profit || !crafts || !crystalName) continue;
+
+            const assembled = assembleSynthesisFromSnapshot(
+                item.sid,
+                item.snapshotId,
+                profit,
+                crafts,
+                crystalName,
+                expectedBySid.get(item.sid)?.expectedProfitPerSingle ?? null,
+                expectedBySid.get(item.sid)?.expectedProfitPerStack ?? null,
+                allSnapshotIngredients,
+                allSnapshotYieldTiers,
+            );
+            if (assembled) syntheses.push(assembled);
+        }
+
+        return { syntheses, total };
+    }
+
+    // ── No-skills path: DB-side sort and pagination ───────────────────────────
     const sortExpr =
         sortBy === 'single'
             ? desc(synthesisProfits.profitPerSingle)
             : sortBy === 'stack'
               ? desc(synthesisProfits.profitPerStack)
-              : desc(
-                    sql`GREATEST(${synthesisProfits.profitPerSingle}, COALESCE(${synthesisProfits.profitPerStack}, ${synthesisProfits.profitPerSingle}))`,
-                );
+              : sortBy === 'daily'
+                ? desc(
+                      sql`GREATEST(${synthesisProfits.dailyProfitSingle}, COALESCE(${synthesisProfits.dailyProfitStack}, ${synthesisProfits.dailyProfitSingle}))`,
+                  )
+                : desc(
+                      sql`GREATEST(${synthesisProfits.profitPerSingle}, COALESCE(${synthesisProfits.profitPerStack}, ${synthesisProfits.profitPerSingle}))`,
+                  );
+
+    const nameIdFilter = nameFilteredIds
+        ? inArray(synthesisProfits.synthesisId, [...nameFilteredIds])
+        : undefined;
+    const noSkillsFilter = and(eligibilityFilter, nameIdFilter);
 
     const [profitRows, [{ total }]] = await Promise.all([
         db
             .select({
+                id: synthesisProfits.id,
                 synthesisId: synthesisProfits.synthesisId,
                 profitPerSingle: synthesisProfits.profitPerSingle,
                 profitPerStack: synthesisProfits.profitPerStack,
+                dailyProfitSingle: synthesisProfits.dailyProfitSingle,
+                dailyProfitStack: synthesisProfits.dailyProfitStack,
+                salesPerDay: synthesisProfits.salesPerDay,
+                stackSalesPerDay: synthesisProfits.stackSalesPerDay,
+                expectedProfitT0: synthesisProfits.expectedProfitT0,
+                expectedProfitT1: synthesisProfits.expectedProfitT1,
+                expectedProfitT2: synthesisProfits.expectedProfitT2,
+                expectedProfitT3: synthesisProfits.expectedProfitT3,
+                expectedProfitStackT0: synthesisProfits.expectedProfitStackT0,
+                expectedProfitStackT1: synthesisProfits.expectedProfitStackT1,
+                expectedProfitStackT2: synthesisProfits.expectedProfitStackT2,
+                expectedProfitStackT3: synthesisProfits.expectedProfitStackT3,
             })
             .from(synthesisProfits)
             .innerJoin(latestProfitSub, profitJoin)
-            .where(eligibilityFilter)
+            .where(noSkillsFilter)
             .orderBy(sortExpr)
             .limit(perPage)
             .offset((page - 1) * perPage),
@@ -420,15 +811,17 @@ export const getProfitableSyntheses = async ({
             .select({ total: count() })
             .from(synthesisProfits)
             .innerJoin(latestProfitSub, profitJoin)
-            .where(eligibilityFilter),
+            .where(noSkillsFilter),
     ]);
 
     if (profitRows.length === 0) return { syntheses: [], total };
 
     const synthesisIds = profitRows.map((r) => r.synthesisId);
+    const snapshotIds = profitRows.map((r) => r.id);
     const profitBySynthesisId = new Map(profitRows.map((r) => [r.synthesisId, r]));
+    const snapshotIdBySynthesisId = new Map(profitRows.map((r) => [r.synthesisId, r.id]));
 
-    const [craftRows, nqYieldRows, ingredientRows] = await Promise.all([
+    const [craftRows, crystalRows] = await Promise.all([
         db
             .select({
                 synthesisId: synthesisCraftRequirements.synthesisId,
@@ -440,159 +833,54 @@ export const getProfitableSyntheses = async ({
             .where(inArray(synthesisCraftRequirements.synthesisId, synthesisIds)),
         db
             .select({
-                synthesisId: synthesisYieldItems.synthesisId,
-                itemId: items.id,
-                name: items.name,
-                quantity: synthesisYieldItems.quantity,
-            })
-            .from(synthesisYieldItems)
-            .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
-            .where(
-                and(
-                    inArray(synthesisYieldItems.synthesisId, synthesisIds),
-                    eq(synthesisYieldItems.tier, 'NQ'),
-                ),
-            ),
-        db
-            .select({
                 synthesisId: synthesisIngredientItems.synthesisId,
-                itemId: items.id,
                 name: items.name,
-                quantity: synthesisIngredientItems.quantity,
-                stackSize: items.stackSize,
             })
             .from(synthesisIngredientItems)
             .innerJoin(items, eq(synthesisIngredientItems.itemId, items.id))
             .where(inArray(synthesisIngredientItems.synthesisId, synthesisIds)),
     ]);
 
-    const allItemIds = [
-        ...new Set([...nqYieldRows.map((r) => r.itemId), ...ingredientRows.map((r) => r.itemId)]),
-    ];
+    const craftsBySynthesis = buildCraftsBySynthesis(craftRows);
 
-    const latestAuctionSub = db
-        .select({
-            itemId: itemAuctionPrices.itemId,
-            maxAt: max(itemAuctionPrices.createdAt).as('max_at'),
-        })
-        .from(itemAuctionPrices)
-        .where(inArray(itemAuctionPrices.itemId, allItemIds))
-        .groupBy(itemAuctionPrices.itemId)
-        .as('latest_auction');
+    const crystalBySynthesisId = new Map<number, string>();
+    for (const row of crystalRows) {
+        if (CRYSTAL_NAMES.has(row.name)) {
+            crystalBySynthesisId.set(row.synthesisId, row.name);
+        }
+    }
 
-    const [auctionRows, vendorRows] = await Promise.all([
+    [allSnapshotIngredients, allSnapshotYieldTiers] = await Promise.all([
         db
-            .select({
-                itemId: itemAuctionPrices.itemId,
-                price: itemAuctionPrices.price,
-                stackPrice: itemAuctionPrices.stackPrice,
-            })
-            .from(itemAuctionPrices)
-            .innerJoin(
-                latestAuctionSub,
-                and(
-                    eq(itemAuctionPrices.itemId, latestAuctionSub.itemId),
-                    eq(itemAuctionPrices.createdAt, latestAuctionSub.maxAt),
-                ),
-            ),
+            .select()
+            .from(synthesisProfitIngredients)
+            .where(inArray(synthesisProfitIngredients.snapshotId, snapshotIds)),
         db
-            .select({
-                itemId: itemVendorPrices.itemId,
-                minPrice: min(itemVendorPrices.price).as('min_price'),
-            })
-            .from(itemVendorPrices)
-            .where(inArray(itemVendorPrices.itemId, allItemIds))
-            .groupBy(itemVendorPrices.itemId),
+            .select()
+            .from(synthesisProfitYieldTiers)
+            .where(inArray(synthesisProfitYieldTiers.snapshotId, snapshotIds)),
     ]);
-
-    const auctionByItemId = new Map(auctionRows.map((r) => [r.itemId, r]));
-    const vendorMinByItemId = new Map(vendorRows.map((r) => [r.itemId, r.minPrice]));
-
-    // Group craft rows by synthesisId
-    const craftsBySynthesis = new Map<
-        number,
-        { mainCraft: CraftRequirement; subCrafts: CraftRequirement[] }
-    >();
-    for (const row of craftRows) {
-        if (!craftsBySynthesis.has(row.synthesisId)) {
-            craftsBySynthesis.set(row.synthesisId, {
-                mainCraft: { craft: row.craft as Craft, craftLevel: row.craftLevel },
-                subCrafts: [],
-            });
-        }
-        const entry = craftsBySynthesis.get(row.synthesisId)!;
-        if (row.isMain) {
-            entry.mainCraft = { craft: row.craft as Craft, craftLevel: row.craftLevel };
-        } else {
-            entry.subCrafts.push({ craft: row.craft as Craft, craftLevel: row.craftLevel });
-        }
-    }
-
-    // First NQ yield per synthesis
-    const nqYieldBySynthesis = new Map<number, (typeof nqYieldRows)[number]>();
-    for (const row of nqYieldRows) {
-        if (!nqYieldBySynthesis.has(row.synthesisId)) nqYieldBySynthesis.set(row.synthesisId, row);
-    }
-
-    // Group ingredients by synthesisId
-    const ingredientsBySynthesis = new Map<number, typeof ingredientRows>();
-    for (const row of ingredientRows) {
-        if (!ingredientsBySynthesis.has(row.synthesisId))
-            ingredientsBySynthesis.set(row.synthesisId, []);
-        ingredientsBySynthesis.get(row.synthesisId)!.push(row);
-    }
 
     const syntheses: ProfitableSynthesis[] = [];
     for (const sid of synthesisIds) {
         const profit = profitBySynthesisId.get(sid);
         const crafts = craftsBySynthesis.get(sid);
-        const nqYieldRow = nqYieldBySynthesis.get(sid);
-        if (!profit || !crafts || !nqYieldRow) continue;
+        const crystalName = crystalBySynthesisId.get(sid);
+        const snapshotId = snapshotIdBySynthesisId.get(sid);
+        if (!profit || !crafts || !crystalName || snapshotId === undefined) continue;
 
-        const nqAuction = auctionByItemId.get(nqYieldRow.itemId);
-        if (!nqAuction) continue;
-
-        const allIngredients = ingredientsBySynthesis.get(sid) ?? [];
-        const crystalRow = allIngredients.find((i) => CRYSTAL_NAMES.has(i.name));
-        const nonCrystalIngredients = allIngredients.filter((i) => !CRYSTAL_NAMES.has(i.name));
-        if (!crystalRow) continue;
-
-        const ingredients: IngredientCost[] = nonCrystalIngredients.map((ing) => {
-            const auction = auctionByItemId.get(ing.itemId);
-            const vendorPrice = vendorMinByItemId.get(ing.itemId) ?? null;
-            const perUnitFromSingle = auction?.price ?? Infinity;
-            const perUnitFromStack =
-                auction?.stackPrice != null && ing.stackSize > 1
-                    ? auction.stackPrice / ing.stackSize
-                    : Infinity;
-            const perUnitFromVendor = vendorPrice ?? Infinity;
-            const unitCost = Math.min(perUnitFromSingle, perUnitFromStack, perUnitFromVendor);
-            const resolvedCost = isFinite(unitCost) ? Math.round(unitCost) : 0;
-            return {
-                itemId: ing.itemId,
-                name: ing.name,
-                quantity: ing.quantity,
-                unitCost: resolvedCost,
-                totalCost: resolvedCost * ing.quantity,
-            };
-        });
-
-        syntheses.push({
-            id: sid,
-            mainCraft: crafts.mainCraft,
-            subCrafts: crafts.subCrafts,
-            crystal: crystalRow.name,
-            profitPerSingle: profit.profitPerSingle,
-            profitPerStack: profit.profitPerStack,
-            nqYield: {
-                itemId: nqYieldRow.itemId,
-                name: nqYieldRow.name,
-                quantity: nqYieldRow.quantity,
-                auctionPrice: nqAuction.price,
-                auctionStackPrice: nqAuction.stackPrice,
-            },
-            ingredients,
-        });
+        const assembled = assembleSynthesisFromSnapshot(
+            sid,
+            snapshotId,
+            profit,
+            crafts,
+            crystalName,
+            null,
+            null,
+            allSnapshotIngredients,
+            allSnapshotYieldTiers,
+        );
+        if (assembled) syntheses.push(assembled);
     }
 
     return { syntheses, total };

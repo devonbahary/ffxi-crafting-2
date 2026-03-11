@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { CRAFTS } from '@ffxi-crafting/types';
+import type { PlayerSkills } from './hq.js';
 import {
     getSynthesesByCraft,
     getSynthesesByIngredientItemId,
@@ -43,14 +44,51 @@ const app = new Hono()
         zValidator(
             'query',
             z.object({
-                sortBy: z.enum(['single', 'stack', 'best']).optional(),
+                sortBy: z.enum(['single', 'stack', 'best', 'daily']).optional(),
                 page: z.coerce.number().int().positive().optional(),
                 perPage: z.coerce.number().int().positive().max(100).optional(),
+                yieldName: z.string().optional(),
+                alchemy: z.coerce.number().int().min(0).max(110).optional(),
+                bonecraft: z.coerce.number().int().min(0).max(110).optional(),
+                clothcraft: z.coerce.number().int().min(0).max(110).optional(),
+                cooking: z.coerce.number().int().min(0).max(110).optional(),
+                goldsmithing: z.coerce.number().int().min(0).max(110).optional(),
+                leathercraft: z.coerce.number().int().min(0).max(110).optional(),
+                smithing: z.coerce.number().int().min(0).max(110).optional(),
+                woodworking: z.coerce.number().int().min(0).max(110).optional(),
             }),
         ),
         async (c) => {
-            const { sortBy, page, perPage } = c.req.valid('query');
-            const result = await getProfitableSyntheses({ sortBy, page, perPage });
+            const {
+                sortBy,
+                page,
+                perPage,
+                yieldName,
+                alchemy,
+                bonecraft,
+                clothcraft,
+                cooking,
+                goldsmithing,
+                leathercraft,
+                smithing,
+                woodworking,
+            } = c.req.valid('query');
+            const skills: PlayerSkills = {};
+            if (alchemy !== undefined) skills['Alchemy'] = alchemy;
+            if (bonecraft !== undefined) skills['Bonecraft'] = bonecraft;
+            if (clothcraft !== undefined) skills['Clothcraft'] = clothcraft;
+            if (cooking !== undefined) skills['Cooking'] = cooking;
+            if (goldsmithing !== undefined) skills['Goldsmithing'] = goldsmithing;
+            if (leathercraft !== undefined) skills['Leathercraft'] = leathercraft;
+            if (smithing !== undefined) skills['Smithing'] = smithing;
+            if (woodworking !== undefined) skills['Woodworking'] = woodworking;
+            const result = await getProfitableSyntheses({
+                sortBy,
+                page,
+                perPage,
+                yieldName: yieldName || undefined,
+                skills: Object.keys(skills).length > 0 ? skills : undefined,
+            });
             return c.json(result);
         },
     );

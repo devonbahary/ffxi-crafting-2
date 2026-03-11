@@ -19,6 +19,9 @@ export const craftEnum = pgEnum('craft', CRAFTS);
 
 export const tierEnum = pgEnum('tier', ['NQ', 'HQ1', 'HQ2', 'HQ3']);
 
+export const priceSourceEnum = pgEnum('price_source', ['ah_single', 'ah_stack', 'vendor']);
+export const revenueSourceEnum = pgEnum('revenue_source', ['single', 'stack']);
+
 export const items = pgTable(
     'items',
     {
@@ -139,9 +142,65 @@ export const synthesisProfits = pgTable(
             .notNull(),
         profitPerSingle: integer('profit_per_single').notNull(),
         profitPerStack: integer('profit_per_stack'),
+        dailyProfitSingle: integer('daily_profit_single'),
+        dailyProfitStack: integer('daily_profit_stack'),
         salesPerDay: real('sales_per_day'),
         stackSalesPerDay: real('stack_sales_per_day'),
+        totalIngredientCost: integer('total_ingredient_cost').notNull(),
+        profitHQ1: integer('profit_hq1'),
+        profitHQ2: integer('profit_hq2'),
+        profitHQ3: integer('profit_hq3'),
+        expectedProfitT0: integer('expected_profit_t0').notNull(),
+        expectedProfitT1: integer('expected_profit_t1').notNull(),
+        expectedProfitT2: integer('expected_profit_t2').notNull(),
+        expectedProfitT3: integer('expected_profit_t3').notNull(),
+        expectedProfitStackT0: integer('expected_profit_stack_t0'),
+        expectedProfitStackT1: integer('expected_profit_stack_t1'),
+        expectedProfitStackT2: integer('expected_profit_stack_t2'),
+        expectedProfitStackT3: integer('expected_profit_stack_t3'),
         createdAt: timestamp('created_at').notNull().defaultNow(),
     },
     (t) => [index('synthesis_profits_synthesis_id_created_at_idx').on(t.synthesisId, t.createdAt)],
+);
+
+export const synthesisProfitIngredients = pgTable(
+    'synthesis_profit_ingredients',
+    {
+        snapshotId: integer('snapshot_id')
+            .references(() => synthesisProfits.id, { onDelete: 'cascade' })
+            .notNull(),
+        itemId: integer('item_id')
+            .references(() => items.id)
+            .notNull(),
+        name: varchar('name', { length: 128 }).notNull(),
+        quantity: integer('quantity').notNull(),
+        auctionSinglePerUnit: integer('auction_single_per_unit'),
+        auctionStackPerUnit: integer('auction_stack_per_unit'),
+        vendorPerUnit: integer('vendor_per_unit'),
+        unitCost: integer('unit_cost').notNull(),
+        priceSource: priceSourceEnum('price_source').notNull(),
+        totalCost: integer('total_cost').notNull(),
+    },
+    (t) => [primaryKey({ columns: [t.snapshotId, t.itemId] })],
+);
+
+export const synthesisProfitYieldTiers = pgTable(
+    'synthesis_profit_yield_tiers',
+    {
+        snapshotId: integer('snapshot_id')
+            .references(() => synthesisProfits.id, { onDelete: 'cascade' })
+            .notNull(),
+        tier: tierEnum('tier').notNull(),
+        itemId: integer('item_id')
+            .references(() => items.id)
+            .notNull(),
+        name: varchar('name', { length: 128 }).notNull(),
+        quantity: integer('quantity').notNull(),
+        stackSize: integer('stack_size').notNull(),
+        auctionSinglePerUnit: integer('auction_single_per_unit'),
+        auctionStackPerUnit: integer('auction_stack_per_unit'),
+        revenue: integer('revenue').notNull(),
+        revenueSource: revenueSourceEnum('revenue_source').notNull(),
+    },
+    (t) => [primaryKey({ columns: [t.snapshotId, t.tier, t.itemId] })],
 );

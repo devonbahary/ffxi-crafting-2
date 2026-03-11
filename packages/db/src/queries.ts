@@ -79,10 +79,11 @@ type SynthesisProfitabilityData = {
     yields: {
         itemId: number;
         name: string;
+        tier: string;
         quantity: number;
-        price: number;
-        stackPrice: number | null;
-        salesPerDay: number;
+        auctionPrice: number | null;
+        auctionStackPrice: number | null;
+        salesPerDay: number | null;
         stackSalesPerDay: number | null;
         stackSize: number;
     }[];
@@ -105,25 +106,13 @@ export const getSynthesisProfitabilityData = async (
             .select({
                 itemId: synthesisYieldItems.itemId,
                 name: items.name,
+                tier: synthesisYieldItems.tier,
                 quantity: synthesisYieldItems.quantity,
                 stackSize: items.stackSize,
-                ffxiId: items.ffxiId,
             })
             .from(synthesisYieldItems)
             .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
-            .where(
-                and(
-                    eq(synthesisYieldItems.synthesisId, synthesisId),
-                    eq(items.isExclusive, false), // item is sellable
-                    exists(
-                        // and we have auction data for it
-                        db
-                            .select()
-                            .from(itemAuctionPrices)
-                            .where(eq(itemAuctionPrices.itemId, items.id)),
-                    ),
-                ),
-            ),
+            .where(eq(synthesisYieldItems.synthesisId, synthesisId)),
         db
             .select({
                 itemId: synthesisIngredientItems.itemId,
@@ -182,25 +171,24 @@ export const getSynthesisProfitabilityData = async (
     const priceByItemId = new Map(auctionPrices.map((p) => [p.itemId, p]));
     const vendorPriceByItemId = new Map(vendorPrices.map((v) => [v.itemId, v.minPrice]));
 
+    // Guard: at least one NQ yield must have auction price data
+    const nqYieldsWithAuction = yieldRows.filter(
+        (r) => r.tier === 'NQ' && priceByItemId.has(r.itemId),
+    );
+    if (nqYieldsWithAuction.length === 0) return null;
+
     return {
         yields: yieldRows.map((r) => {
             const pricing = priceByItemId.get(r.itemId);
-
-            // for type checking; should never occur due to query filter
-            if (!pricing) {
-                throw new Error(
-                    `Invariant: yield itemId=${r.itemId} has no auction price (filtered by EXISTS)`,
-                );
-            }
-
             return {
                 itemId: r.itemId,
                 name: r.name,
+                tier: r.tier,
                 quantity: r.quantity,
-                price: pricing.price,
-                stackPrice: pricing.stackPrice ?? null,
-                salesPerDay: pricing.salesPerDay,
-                stackSalesPerDay: pricing.stackSalesPerDay ?? null,
+                auctionPrice: pricing?.price ?? null,
+                auctionStackPrice: pricing?.stackPrice ?? null,
+                salesPerDay: pricing?.salesPerDay ?? null,
+                stackSalesPerDay: pricing?.stackSalesPerDay ?? null,
                 stackSize: r.stackSize,
             };
         }),

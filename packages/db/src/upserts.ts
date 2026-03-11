@@ -10,6 +10,8 @@ import {
     synthesisYieldItems,
     synthesisIngredientItems,
     synthesisProfits,
+    synthesisProfitIngredients,
+    synthesisProfitYieldTiers,
 } from './schema.js';
 import type { CraftRequirement } from '@ffxi-crafting/types';
 
@@ -106,16 +108,68 @@ const PROFIT_WINDOW_HOURS = 24;
 
 export const upsertSynthesisProfit = async ({
     synthesisId,
+    totalIngredientCost,
     profitPerSingle,
     profitPerStack,
+    dailyProfitSingle,
+    dailyProfitStack,
+    profitHQ1,
+    profitHQ2,
+    profitHQ3,
+    expectedProfitT0,
+    expectedProfitT1,
+    expectedProfitT2,
+    expectedProfitT3,
+    expectedProfitStackT0,
+    expectedProfitStackT1,
+    expectedProfitStackT2,
+    expectedProfitStackT3,
     salesPerDay,
     stackSalesPerDay,
+    ingredientSnapshot,
+    yieldTierSnapshot,
 }: {
     synthesisId: number;
+    totalIngredientCost: number;
     profitPerSingle: number;
     profitPerStack: number | null;
+    dailyProfitSingle: number | null;
+    dailyProfitStack: number | null;
+    profitHQ1: number | null;
+    profitHQ2: number | null;
+    profitHQ3: number | null;
+    expectedProfitT0: number;
+    expectedProfitT1: number;
+    expectedProfitT2: number;
+    expectedProfitT3: number;
+    expectedProfitStackT0: number | null;
+    expectedProfitStackT1: number | null;
+    expectedProfitStackT2: number | null;
+    expectedProfitStackT3: number | null;
     salesPerDay: number;
     stackSalesPerDay: number | null;
+    ingredientSnapshot: {
+        itemId: number;
+        name: string;
+        quantity: number;
+        auctionSinglePerUnit: number | null;
+        auctionStackPerUnit: number | null;
+        vendorPerUnit: number | null;
+        unitCost: number;
+        priceSource: 'ah_single' | 'ah_stack' | 'vendor';
+        totalCost: number;
+    }[];
+    yieldTierSnapshot: {
+        tier: string;
+        itemId: number;
+        name: string;
+        quantity: number;
+        stackSize: number;
+        auctionSinglePerUnit: number | null;
+        auctionStackPerUnit: number | null;
+        revenue: number;
+        revenueSource: 'single' | 'stack';
+    }[];
 }): Promise<void> => {
     const recent = await db
         .select({ id: synthesisProfits.id })
@@ -133,20 +187,102 @@ export const upsertSynthesisProfit = async ({
         .limit(1)
         .then((r) => r[0]);
 
-    if (recent) {
-        await db
-            .update(synthesisProfits)
-            .set({ profitPerSingle, profitPerStack, salesPerDay, stackSalesPerDay })
-            .where(eq(synthesisProfits.id, recent.id));
-    } else {
-        await db.insert(synthesisProfits).values({
-            synthesisId,
-            profitPerSingle,
-            profitPerStack,
-            salesPerDay,
-            stackSalesPerDay,
-        });
-    }
+    await db.transaction(async (tx) => {
+        let snapshotId: number;
+
+        if (recent) {
+            await tx
+                .update(synthesisProfits)
+                .set({
+                    profitPerSingle,
+                    profitPerStack,
+                    dailyProfitSingle,
+                    dailyProfitStack,
+                    salesPerDay,
+                    stackSalesPerDay,
+                    totalIngredientCost,
+                    profitHQ1,
+                    profitHQ2,
+                    profitHQ3,
+                    expectedProfitT0,
+                    expectedProfitT1,
+                    expectedProfitT2,
+                    expectedProfitT3,
+                    expectedProfitStackT0,
+                    expectedProfitStackT1,
+                    expectedProfitStackT2,
+                    expectedProfitStackT3,
+                })
+                .where(eq(synthesisProfits.id, recent.id));
+            snapshotId = recent.id;
+            await tx
+                .delete(synthesisProfitIngredients)
+                .where(eq(synthesisProfitIngredients.snapshotId, snapshotId));
+            await tx
+                .delete(synthesisProfitYieldTiers)
+                .where(eq(synthesisProfitYieldTiers.snapshotId, snapshotId));
+        } else {
+            const [inserted] = await tx
+                .insert(synthesisProfits)
+                .values({
+                    synthesisId,
+                    profitPerSingle,
+                    profitPerStack,
+                    dailyProfitSingle,
+                    dailyProfitStack,
+                    salesPerDay,
+                    stackSalesPerDay,
+                    totalIngredientCost,
+                    profitHQ1,
+                    profitHQ2,
+                    profitHQ3,
+                    expectedProfitT0,
+                    expectedProfitT1,
+                    expectedProfitT2,
+                    expectedProfitT3,
+                    expectedProfitStackT0,
+                    expectedProfitStackT1,
+                    expectedProfitStackT2,
+                    expectedProfitStackT3,
+                })
+                .returning({ id: synthesisProfits.id });
+            snapshotId = inserted.id;
+        }
+
+        if (ingredientSnapshot.length > 0) {
+            await tx.insert(synthesisProfitIngredients).values(
+                ingredientSnapshot.map((ing) => ({
+                    snapshotId,
+                    itemId: ing.itemId,
+                    name: ing.name,
+                    quantity: ing.quantity,
+                    auctionSinglePerUnit: ing.auctionSinglePerUnit,
+                    auctionStackPerUnit: ing.auctionStackPerUnit,
+                    vendorPerUnit: ing.vendorPerUnit,
+                    unitCost: ing.unitCost,
+                    priceSource: ing.priceSource,
+                    totalCost: ing.totalCost,
+                })),
+            );
+        }
+
+        if (yieldTierSnapshot.length > 0) {
+            await tx.insert(synthesisProfitYieldTiers).values(
+                yieldTierSnapshot.map((y) => ({
+                    snapshotId,
+                    tier: y.tier as 'NQ' | 'HQ1' | 'HQ2' | 'HQ3',
+                    itemId: y.itemId,
+                    name: y.name,
+                    quantity: y.quantity,
+                    stackSize: y.stackSize,
+                    auctionSinglePerUnit: y.auctionSinglePerUnit,
+                    auctionStackPerUnit: y.auctionStackPerUnit,
+                    revenue: y.revenue,
+                    revenueSource: y.revenueSource,
+                })),
+            );
+        }
+    });
 };
 
 type SynthesisInput = {
