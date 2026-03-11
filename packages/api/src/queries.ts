@@ -62,21 +62,35 @@ export type ItemDetail = {
     vendors: VendorInfo[];
 };
 
-export const searchItemsByName = async (name: string): Promise<ItemDetail[]> => {
-    const matchingItems = await db
-        .select({
-            id: items.id,
-            name: items.name,
-            stackSize: items.stackSize,
-            isExclusive: items.isExclusive,
-            ffxiId: items.ffxiId,
-        })
-        .from(items)
-        .where(ilike(items.name, `%${name}%`))
-        .orderBy(items.name)
-        .limit(50);
+export const searchItemsByName = async ({
+    name,
+    page = 1,
+    perPage = 50,
+}: {
+    name?: string;
+    page?: number;
+    perPage?: number;
+}): Promise<{ items: ItemDetail[]; total: number }> => {
+    const nameFilter = name ? ilike(items.name, `%${name}%`) : undefined;
 
-    if (matchingItems.length === 0) return [];
+    const [matchingItems, [{ total }]] = await Promise.all([
+        db
+            .select({
+                id: items.id,
+                name: items.name,
+                stackSize: items.stackSize,
+                isExclusive: items.isExclusive,
+                ffxiId: items.ffxiId,
+            })
+            .from(items)
+            .where(nameFilter)
+            .orderBy(items.name)
+            .limit(perPage)
+            .offset((page - 1) * perPage),
+        db.select({ total: count() }).from(items).where(nameFilter),
+    ]);
+
+    if (matchingItems.length === 0) return { items: [], total };
 
     const itemIds = matchingItems.map((i) => i.id);
 
@@ -132,17 +146,20 @@ export const searchItemsByName = async (name: string): Promise<ItemDetail[]> => 
         });
     }
 
-    return matchingItems.map((item) => {
-        const auction = auctionByItemId.get(item.id);
-        return {
-            ...item,
-            auctionPrice: auction?.price ?? null,
-            auctionSalesPerDay: auction?.salesPerDay ?? null,
-            auctionStackPrice: auction?.stackPrice ?? null,
-            auctionStackSalesPerDay: auction?.stackSalesPerDay ?? null,
-            vendors: vendorsByItemId.get(item.id) ?? [],
-        };
-    });
+    return {
+        total,
+        items: matchingItems.map((item) => {
+            const auction = auctionByItemId.get(item.id);
+            return {
+                ...item,
+                auctionPrice: auction?.price ?? null,
+                auctionSalesPerDay: auction?.salesPerDay ?? null,
+                auctionStackPrice: auction?.stackPrice ?? null,
+                auctionStackSalesPerDay: auction?.stackSalesPerDay ?? null,
+                vendors: vendorsByItemId.get(item.id) ?? [],
+            };
+        }),
+    };
 };
 
 const assembleSynthesesByIds = async (synthesisIds: number[]): Promise<SynthesisDetail[]> => {

@@ -22,11 +22,22 @@ const app = new Hono()
         const syntheses = await getSynthesesByCraft(craft);
         return c.json(syntheses);
     })
-    .get('/api/items', zValidator('query', z.object({ name: z.string().min(1) })), async (c) => {
-        const { name } = c.req.valid('query');
-        const items = await searchItemsByName(name);
-        return c.json(items);
-    })
+    .get(
+        '/api/items',
+        zValidator(
+            'query',
+            z.object({
+                name: z.string().optional(),
+                page: z.coerce.number().int().positive().optional(),
+                perPage: z.coerce.number().int().positive().max(100).optional(),
+            }),
+        ),
+        async (c) => {
+            const { name, page, perPage } = c.req.valid('query');
+            const result = await searchItemsByName({ name, page, perPage });
+            return c.json(result);
+        },
+    )
     .get('/api/items/:itemId/syntheses', async (c) => {
         const itemId = parseInt(c.req.param('itemId'), 10);
         if (isNaN(itemId)) return c.json({ error: 'Invalid itemId' }, 400);

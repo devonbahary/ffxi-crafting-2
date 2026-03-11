@@ -122,11 +122,14 @@ const ItemExpandedRow = ({ item }: { item: ItemDetail }) => {
     );
 };
 
+const PER_PAGE = 50;
+
 const ItemsPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const query = searchParams.get('name') ?? '';
+    const page = parseInt(searchParams.get('page') ?? '1', 10);
 
-    const [items, setItems] = useState<ItemDetail[]>([]);
+    const [data, setData] = useState<{ items: ItemDetail[]; total: number } | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
@@ -134,19 +137,20 @@ const ItemsPage = () => {
 
     useEffect(() => {
         setExpandedItemId(null);
-        if (!query) {
-            setItems([]);
-            return;
-        }
-
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(async () => {
             setLoading(true);
             setError(null);
             try {
-                const res = await client.api.items.$get({ query: { name: query } });
+                const res = await client.api.items.$get({
+                    query: {
+                        ...(query ? { name: query } : {}),
+                        page: String(page),
+                        perPage: String(PER_PAGE),
+                    },
+                });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                setItems(await res.json());
+                setData(await res.json());
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Unknown error');
             } finally {
@@ -157,83 +161,125 @@ const ItemsPage = () => {
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [query]);
+    }, [query, page]);
+
+    const setPage = (p: number) =>
+        setSearchParams({ ...Object.fromEntries(searchParams), page: String(p) });
+    const setQuery = (value: string) => {
+        const next = new URLSearchParams(searchParams);
+        if (value) {
+            next.set('name', value);
+        } else {
+            next.delete('name');
+        }
+        next.set('page', '1');
+        setSearchParams(next);
+    };
+
+    const totalPages = data ? Math.ceil(data.total / PER_PAGE) : 1;
 
     return (
         <div className="p-6">
             <h1 className="mb-6 text-2xl font-bold">Items</h1>
 
-            <input
-                className="border-input mb-4 w-72 rounded-md border px-3 py-2 text-sm outline-none focus:ring-1"
-                placeholder="Search by name..."
-                value={query}
-                onChange={(e) =>
-                    setSearchParams(e.target.value ? { name: e.target.value } : {})
-                }
-            />
+            <div className="mb-4 flex items-center gap-4">
+                <input
+                    className="border-input w-72 rounded-md border px-3 py-2 text-sm outline-none focus:ring-1"
+                    placeholder="Search by name..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                />
+                {data && (
+                    <span className="text-sm text-muted-foreground">{data.total} items</span>
+                )}
+            </div>
 
             {loading && <p className="text-muted-foreground">Loading...</p>}
             {error && <p className="text-destructive">Error: {error}</p>}
-            {!loading && !error && query && items.length === 0 && (
+            {!loading && !error && data && data.items.length === 0 && (
                 <p className="text-muted-foreground">No items found.</p>
             )}
 
-            {!loading && !error && items.length > 0 && (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead className="text-right">Stack</TableHead>
-                            <TableHead className="text-right">AH Price</TableHead>
-                            <TableHead>Rate</TableHead>
-                            <TableHead className="text-right">AH Stack Price</TableHead>
-                            <TableHead>Rate</TableHead>
-                            <TableHead className="text-right">Vendor Price</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {items.map((item) => (
-                            <>
-                                <TableRow
-                                    key={item.id}
-                                    className="cursor-pointer"
-                                    onClick={() =>
-                                        setExpandedItemId(
-                                            expandedItemId === item.id ? null : item.id,
-                                        )
-                                    }
-                                >
-                                    <TableCell>{item.name}</TableCell>
-                                    <TableCell className="text-right">
-                                        {item.stackSize > 1 ? `x${item.stackSize}` : '—'}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        {item.auctionPrice !== null
-                                            ? formatGil(item.auctionPrice)
-                                            : '—'}
-                                    </TableCell>
-                                    <RatingCell salesPerDay={item.auctionSalesPerDay} />
-                                    <TableCell className="text-right">
-                                        {item.auctionStackPrice !== null
-                                            ? formatGil(item.auctionStackPrice)
-                                            : '—'}
-                                    </TableCell>
-                                    <RatingCell salesPerDay={item.auctionStackSalesPerDay} />
-                                    <TableCell className="text-right">
-                                        {item.vendors.length === 0
-                                            ? '—'
-                                            : formatGil(
-                                                  Math.min(...item.vendors.map((v) => v.price)),
-                                              )}
-                                    </TableCell>
-                                </TableRow>
-                                {expandedItemId === item.id && (
-                                    <ItemExpandedRow key={`${item.id}-expanded`} item={item} />
-                                )}
-                            </>
-                        ))}
-                    </TableBody>
-                </Table>
+            {!loading && !error && data && data.items.length > 0 && (
+                <>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead className="text-right">Stack</TableHead>
+                                <TableHead className="text-right">AH Price</TableHead>
+                                <TableHead>Rate</TableHead>
+                                <TableHead className="text-right">AH Stack Price</TableHead>
+                                <TableHead>Rate</TableHead>
+                                <TableHead className="text-right">Vendor Price</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {data.items.map((item) => (
+                                <>
+                                    <TableRow
+                                        key={item.id}
+                                        className="cursor-pointer"
+                                        onClick={() =>
+                                            setExpandedItemId(
+                                                expandedItemId === item.id ? null : item.id,
+                                            )
+                                        }
+                                    >
+                                        <TableCell>{item.name}</TableCell>
+                                        <TableCell className="text-right">
+                                            {item.stackSize > 1 ? `x${item.stackSize}` : '—'}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {item.auctionPrice !== null
+                                                ? formatGil(item.auctionPrice)
+                                                : '—'}
+                                        </TableCell>
+                                        <RatingCell salesPerDay={item.auctionSalesPerDay} />
+                                        <TableCell className="text-right">
+                                            {item.auctionStackPrice !== null
+                                                ? formatGil(item.auctionStackPrice)
+                                                : '—'}
+                                        </TableCell>
+                                        <RatingCell salesPerDay={item.auctionStackSalesPerDay} />
+                                        <TableCell className="text-right">
+                                            {item.vendors.length === 0
+                                                ? '—'
+                                                : formatGil(
+                                                      Math.min(
+                                                          ...item.vendors.map((v) => v.price),
+                                                      ),
+                                                  )}
+                                        </TableCell>
+                                    </TableRow>
+                                    {expandedItemId === item.id && (
+                                        <ItemExpandedRow key={`${item.id}-expanded`} item={item} />
+                                    )}
+                                </>
+                            ))}
+                        </TableBody>
+                    </Table>
+
+                    <div className="mt-4 flex items-center justify-between">
+                        <button
+                            className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+                            disabled={page <= 1}
+                            onClick={() => setPage(page - 1)}
+                        >
+                            Previous
+                        </button>
+                        <span className="text-sm text-muted-foreground">
+                            Page {page} of {totalPages}
+                        </span>
+                        <button
+                            className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+                            disabled={page >= totalPages}
+                            onClick={() => setPage(page + 1)}
+                        >
+                            Next
+                        </button>
+                    </div>
+                </>
             )}
         </div>
     );
