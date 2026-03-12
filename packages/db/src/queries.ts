@@ -5,6 +5,7 @@ import {
     itemVendorPrices,
     items,
     synthesisIngredientItems,
+    synthesisCraftRequirements,
     synthesisYieldItems,
 } from './schema.js';
 import type { Item } from './types.js';
@@ -202,6 +203,29 @@ export const getSynthesisProfitabilityData = async (
             vendorPrice: vendorPriceByItemId.get(r.itemId) ?? null,
         })),
     };
+};
+
+export const getSynthesisDebugInfo = async (synthesisId: number) => {
+    const [yields, craftRequirements] = await Promise.all([
+        db
+            .select({
+                tier: synthesisYieldItems.tier,
+                quantity: synthesisYieldItems.quantity,
+                name: items.name,
+            })
+            .from(synthesisYieldItems)
+            .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
+            .where(eq(synthesisYieldItems.synthesisId, synthesisId)),
+        db
+            .select({
+                craft: synthesisCraftRequirements.craft,
+                craftLevel: synthesisCraftRequirements.craftLevel,
+                isMain: synthesisCraftRequirements.isMain,
+            })
+            .from(synthesisCraftRequirements)
+            .where(eq(synthesisCraftRequirements.synthesisId, synthesisId)),
+    ]);
+    return { yields, craftRequirements };
 };
 
 export const getItemForPricing = async (itemId: number): Promise<ItemPricingRow | null> => {

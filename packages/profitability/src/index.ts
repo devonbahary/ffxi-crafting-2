@@ -2,6 +2,7 @@ import {
     boss,
     closeDb,
     getAuctionableSynthesisIds,
+    getSynthesisDebugInfo,
     getSynthesisProfitabilityData,
     upsertSynthesisProfit,
 } from '@ffxi-crafting/db';
@@ -46,7 +47,16 @@ await boss.work<ProfitJob>('synthesis-profit.update', { batchSize: 5 }, async (j
                     await Promise.all(synthesisIds.map(processSynthesis));
                 }
             } catch (err) {
-                logger.error({ err }, `Error processing job data=${JSON.stringify(job.data)}`);
+                const synthesisId = 'synthesisId' in job.data ? job.data.synthesisId : undefined;
+                if (synthesisId !== undefined) {
+                    const debug = await getSynthesisDebugInfo(synthesisId).catch(() => null);
+                    logger.error(
+                        { err, yields: debug?.yields, craftRequirements: debug?.craftRequirements },
+                        `Error processing job data=${JSON.stringify(job.data)}`,
+                    );
+                } else {
+                    logger.error({ err }, `Error processing job data=${JSON.stringify(job.data)}`);
+                }
                 throw err;
             }
         }),
