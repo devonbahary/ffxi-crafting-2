@@ -17,6 +17,10 @@ import type { CraftRequirement } from '@ffxi-crafting/types';
 
 export type Tier = (typeof tierEnum.enumValues)[number];
 
+const CAP = 999_999_999;
+const capInt = (n: number): number => Math.max(-CAP, Math.min(CAP, n));
+const capIntN = (n: number | null): number | null => (n === null ? null : capInt(n));
+
 export type SynthesisCraftRequirementInsert = InferInsertModel<typeof synthesisCraftRequirements>;
 
 export const upsertItemStub = async ({
@@ -79,9 +83,13 @@ export const insertAuctionPrice = async ({
     stackPrice: number | null;
     stackSalesPerDay: number | null;
 }): Promise<void> => {
-    await db
-        .insert(itemAuctionPrices)
-        .values({ itemId, price, salesPerDay, stackPrice, stackSalesPerDay });
+    await db.insert(itemAuctionPrices).values({
+        itemId,
+        price: capInt(price),
+        salesPerDay,
+        stackPrice: capIntN(stackPrice),
+        stackSalesPerDay,
+    });
 };
 
 export const upsertVendorPrice = async (vendor: {
@@ -93,7 +101,7 @@ export const upsertVendorPrice = async (vendor: {
 }): Promise<void> => {
     await db
         .insert(itemVendorPrices)
-        .values(vendor)
+        .values({ ...vendor, price: capInt(vendor.price) })
         .onConflictDoUpdate({
             target: [itemVendorPrices.itemId, itemVendorPrices.vendorName],
             set: {
@@ -188,32 +196,32 @@ export const upsertSynthesisProfit = async ({
         .limit(1)
         .then((r) => r[0]);
 
+    const capped = {
+        totalIngredientCost: capInt(totalIngredientCost),
+        marginPerItem: capInt(marginPerItem),
+        marginPerStack: capIntN(marginPerStack),
+        dailyProfitSingle: capIntN(dailyProfitSingle),
+        dailyProfitStack: capIntN(dailyProfitStack),
+        profitHQ1: capIntN(profitHQ1),
+        profitHQ2: capIntN(profitHQ2),
+        profitHQ3: capIntN(profitHQ3),
+        expectedProfitT0: capInt(expectedProfitT0),
+        expectedProfitT1: capInt(expectedProfitT1),
+        expectedProfitT2: capInt(expectedProfitT2),
+        expectedProfitT3: capInt(expectedProfitT3),
+        expectedProfitStackT0: capIntN(expectedProfitStackT0),
+        expectedProfitStackT1: capIntN(expectedProfitStackT1),
+        expectedProfitStackT2: capIntN(expectedProfitStackT2),
+        expectedProfitStackT3: capIntN(expectedProfitStackT3),
+    };
+
     await db.transaction(async (tx) => {
         let snapshotId: number;
 
         if (recent) {
             await tx
                 .update(synthesisProfits)
-                .set({
-                    marginPerItem,
-                    marginPerStack,
-                    dailyProfitSingle,
-                    dailyProfitStack,
-                    salesPerDay,
-                    stackSalesPerDay,
-                    totalIngredientCost,
-                    profitHQ1,
-                    profitHQ2,
-                    profitHQ3,
-                    expectedProfitT0,
-                    expectedProfitT1,
-                    expectedProfitT2,
-                    expectedProfitT3,
-                    expectedProfitStackT0,
-                    expectedProfitStackT1,
-                    expectedProfitStackT2,
-                    expectedProfitStackT3,
-                })
+                .set({ salesPerDay, stackSalesPerDay, ...capped })
                 .where(eq(synthesisProfits.id, recent.id));
             snapshotId = recent.id;
             await tx
@@ -225,27 +233,7 @@ export const upsertSynthesisProfit = async ({
         } else {
             const [inserted] = await tx
                 .insert(synthesisProfits)
-                .values({
-                    synthesisId,
-                    marginPerItem,
-                    marginPerStack,
-                    dailyProfitSingle,
-                    dailyProfitStack,
-                    salesPerDay,
-                    stackSalesPerDay,
-                    totalIngredientCost,
-                    profitHQ1,
-                    profitHQ2,
-                    profitHQ3,
-                    expectedProfitT0,
-                    expectedProfitT1,
-                    expectedProfitT2,
-                    expectedProfitT3,
-                    expectedProfitStackT0,
-                    expectedProfitStackT1,
-                    expectedProfitStackT2,
-                    expectedProfitStackT3,
-                })
+                .values({ synthesisId, salesPerDay, stackSalesPerDay, ...capped })
                 .returning({ id: synthesisProfits.id });
             snapshotId = inserted.id;
         }
@@ -258,12 +246,12 @@ export const upsertSynthesisProfit = async ({
                     name: ing.name,
                     quantity: ing.quantity,
                     stackSize: ing.stackSize,
-                    auctionSinglePerUnit: ing.auctionSinglePerUnit,
-                    auctionStackPerUnit: ing.auctionStackPerUnit,
-                    vendorPerUnit: ing.vendorPerUnit,
-                    unitCost: ing.unitCost,
+                    auctionSinglePerUnit: capIntN(ing.auctionSinglePerUnit),
+                    auctionStackPerUnit: capIntN(ing.auctionStackPerUnit),
+                    vendorPerUnit: capIntN(ing.vendorPerUnit),
+                    unitCost: capInt(ing.unitCost),
                     priceSource: ing.priceSource,
-                    totalCost: ing.totalCost,
+                    totalCost: capInt(ing.totalCost),
                 })),
             );
         }
@@ -277,9 +265,9 @@ export const upsertSynthesisProfit = async ({
                     name: y.name,
                     quantity: y.quantity,
                     stackSize: y.stackSize,
-                    auctionSinglePerUnit: y.auctionSinglePerUnit,
-                    auctionStackPerUnit: y.auctionStackPerUnit,
-                    revenue: y.revenue,
+                    auctionSinglePerUnit: capIntN(y.auctionSinglePerUnit),
+                    auctionStackPerUnit: capIntN(y.auctionStackPerUnit),
+                    revenue: capInt(y.revenue),
                     revenueSource: y.revenueSource,
                 })),
             );
