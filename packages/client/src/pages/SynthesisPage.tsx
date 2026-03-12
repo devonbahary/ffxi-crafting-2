@@ -21,6 +21,19 @@ const TIER_BADGE_CLASS: Record<string, string> = {
 const TierBadge = ({ tier }: { tier: string }) => (
     <Badge className={TIER_BADGE_CLASS[tier] ?? TIER_BADGE_CLASS.NQ}>{tier}</Badge>
 );
+
+const HQ_RATE_BADGE_CLASS: Record<number, string> = {
+    0: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    1: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    2: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',
+    3: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+};
+
+const HqTierBadge = ({ tier, hqRate }: { tier: number; hqRate: number }) => (
+    <Badge className={HQ_RATE_BADGE_CLASS[tier]}>
+        T{tier} {formatChance(hqRate)}
+    </Badge>
+);
 import {
     Table,
     TableBody,
@@ -140,8 +153,8 @@ const ExpandedRow = ({
                                 <th className="text-right pr-4 font-normal">Revenue</th>
                                 <th className="w-16 text-right pr-6 font-normal">Δ%</th>
                                 {showChance && <th className="text-right pr-4 font-normal">Chance</th>}
-                                <th className="text-right pr-4 font-normal">Profit/Single</th>
-                                <th className="text-right font-normal">Profit/Stack</th>
+                                <th className="text-right pr-4 font-normal">Margin/Item</th>
+                                <th className="text-right font-normal">Margin/Stack</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -160,17 +173,18 @@ const ExpandedRow = ({
                                 <td className="w-16 pr-6" />
                                 {showChance && <td className="text-right pr-4 text-muted-foreground">{formatChance(probs.NQ)}</td>}
                                 {(() => {
-                                    const singleRev = nqYield.auctionPrice !== null ? nqYield.auctionPrice * nqYield.quantity : null;
-                                    const stackRev = nqYield.auctionStackPrice !== null ? Math.round(nqYield.auctionStackPrice / nqYield.stackSize) * nqYield.quantity : null;
-                                    const profitSingle = singleRev !== null ? singleRev - totalCost : null;
-                                    const profitStack = stackRev !== null ? stackRev - totalCost : null;
+                                    const qty = nqYield.quantity;
+                                    const singleRev = nqYield.auctionPrice !== null ? nqYield.auctionPrice * qty : null;
+                                    const stackRev = nqYield.auctionStackPrice !== null ? Math.round(nqYield.auctionStackPrice / nqYield.stackSize) * qty : null;
+                                    const marginSingle = singleRev !== null ? Math.round((singleRev - totalCost) / qty) : null;
+                                    const marginStack = stackRev !== null ? Math.round((stackRev - totalCost) / qty) : null;
                                     return (
                                         <>
-                                            <td className={`text-right pr-4 font-medium ${profitSingle !== null ? (profitSingle >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
-                                                {profitSingle !== null ? formatGil(profitSingle) : '—'}
+                                            <td className={`text-right pr-4 font-medium ${marginSingle !== null ? (marginSingle >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
+                                                {marginSingle !== null ? formatGil(marginSingle) : '—'}
                                             </td>
-                                            <td className={`text-right font-medium ${profitStack !== null ? (profitStack >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
-                                                {profitStack !== null ? formatGil(profitStack) : '—'}
+                                            <td className={`text-right font-medium ${marginStack !== null ? (marginStack >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
+                                                {marginStack !== null ? formatGil(marginStack) : '—'}
                                             </td>
                                         </>
                                     );
@@ -180,10 +194,11 @@ const ExpandedRow = ({
                                 tier.items.map((item, itemIdx) => {
                                     const pct = itemIdx === 0 ? pctByTier.get(tier.tier) : undefined;
                                     const revenue = item.revenue > 0 ? item.revenue : null;
+                                    const tierQty = tier.items.reduce((sum, it) => sum + it.quantity, 0);
                                     const tierSingleRev = itemIdx === 0 ? tier.items.reduce((sum, it) => sum + (it.auctionPrice !== null ? it.auctionPrice * it.quantity : 0), 0) : null;
                                     const tierStackRev = itemIdx === 0 ? tier.items.reduce((sum, it) => sum + (it.auctionStackPrice !== null ? Math.round(it.auctionStackPrice / it.stackSize) * it.quantity : 0), 0) : null;
-                                    const profitSingle = tierSingleRev !== null ? tierSingleRev - totalCost : null;
-                                    const profitStack = tierStackRev !== null && tier.items.some((it) => it.auctionStackPrice !== null) ? tierStackRev - totalCost : null;
+                                    const marginSingle = tierSingleRev !== null ? Math.round((tierSingleRev - totalCost) / tierQty) : null;
+                                    const marginStack = tierStackRev !== null && tier.items.some((it) => it.auctionStackPrice !== null) ? Math.round((tierStackRev - totalCost) / tierQty) : null;
                                     return (
                                         <tr key={`${tier.tier}-${item.itemId}`}>
                                             <td className="pr-4"><TierBadge tier={tier.tier} /></td>
@@ -205,11 +220,11 @@ const ExpandedRow = ({
                                                     {itemIdx === 0 ? formatChance(probs[tier.tier]) : ''}
                                                 </td>
                                             )}
-                                            <td className={`text-right pr-4 font-medium ${profitSingle !== null ? (profitSingle >= 0 ? 'text-green-500' : 'text-red-500') : ''}`}>
-                                                {itemIdx === 0 && profitSingle !== null ? formatGil(profitSingle) : ''}
+                                            <td className={`text-right pr-4 font-medium ${marginSingle !== null ? (marginSingle >= 0 ? 'text-green-500' : 'text-red-500') : ''}`}>
+                                                {itemIdx === 0 && marginSingle !== null ? formatGil(marginSingle) : ''}
                                             </td>
-                                            <td className={`text-right font-medium ${profitStack !== null ? (profitStack >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
-                                                {itemIdx === 0 ? (profitStack !== null ? formatGil(profitStack) : '—') : ''}
+                                            <td className={`text-right font-medium ${marginStack !== null ? (marginStack >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
+                                                {itemIdx === 0 ? (marginStack !== null ? formatGil(marginStack) : '—') : ''}
                                             </td>
                                         </tr>
                                     );
@@ -227,10 +242,10 @@ const ExpandedRow = ({
                             })),
                         ];
                         const expectedRevenue = tierContribs.reduce((sum, t) => sum + t.revenue * t.prob, 0);
-                        const pragmaticProfit = Math.round(expectedRevenue - totalCost);
+                        const expectedProfit = Math.round(expectedRevenue - totalCost);
                         return (
                             <div className="mt-3 text-sm">
-                                <p className="text-muted-foreground font-medium mb-1">Pragmatic Profit</p>
+                                <p className="text-muted-foreground font-medium mb-1">Expected Profit</p>
                                 <table className="text-xs text-muted-foreground">
                                     <tbody>
                                         {tierContribs.map((t) => (
@@ -253,8 +268,8 @@ const ExpandedRow = ({
                                         </tr>
                                         <tr className="border-t">
                                             <td colSpan={5} className="pr-2 pt-1 font-medium text-foreground">Profit</td>
-                                            <td className={`text-right pt-1 font-medium ${pragmaticProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                {formatGil(pragmaticProfit)}
+                                            <td className={`text-right pt-1 font-medium ${expectedProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                {formatGil(expectedProfit)}
                                             </td>
                                         </tr>
                                     </tbody>
@@ -450,8 +465,8 @@ const SynthesisPage = () => {
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="single">By Single Profit</SelectItem>
-                        <SelectItem value="stack">By Stack Profit</SelectItem>
+                        <SelectItem value="single">By Margin/Item</SelectItem>
+                        <SelectItem value="stack">By Margin/Stack</SelectItem>
                         <SelectItem value="best">Best of Either</SelectItem>
                         <SelectItem value="daily">By Daily Profit</SelectItem>
                     </SelectContent>
@@ -515,15 +530,24 @@ const SynthesisPage = () => {
                                 <TableHead>NQ Yield</TableHead>
                                 <TableHead className="text-right">AH Price</TableHead>
                                 <TableHead className="text-right">AH Stack</TableHead>
-                                <TableHead className="text-right">Profit/Single</TableHead>
+                                <TableHead className="text-right">Margin/Item</TableHead>
                                 <TableHead className="text-right">Rate</TableHead>
-                                <TableHead className="text-right">Profit/Stack</TableHead>
+                                <TableHead className="text-right">Margin/Stack</TableHead>
                                 <TableHead className="text-right">Rate</TableHead>
                                 <TableHead className="text-right">Updated</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {data.syntheses.map((s) => (
+                            {data.syntheses.map((s) => {
+                                const craftReqs = [s.mainCraft, ...s.subCrafts];
+                                const probs = hasSkills
+                                    ? getSynthesisTierProbabilities(craftReqs, playerSkills)
+                                    : null;
+                                const hqRate =
+                                    probs !== null && probs.tier >= 0
+                                        ? probs.HQ1 + probs.HQ2 + probs.HQ3
+                                        : null;
+                                return (
                                 <>
                                     <TableRow
                                         key={s.id}
@@ -533,14 +557,19 @@ const SynthesisPage = () => {
                                         }
                                     >
                                         <TableCell>
-                                            <span
-                                                className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${getCraftColor(s.mainCraft.craft)}`}
-                                            >
-                                                {s.mainCraft.craft}
-                                            </span>{' '}
-                                            <span className="text-muted-foreground text-xs">
-                                                {s.mainCraft.craftLevel}
-                                            </span>
+                                            <div className="flex flex-wrap items-center gap-1">
+                                                <span
+                                                    className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${getCraftColor(s.mainCraft.craft)}`}
+                                                >
+                                                    {s.mainCraft.craft}
+                                                </span>
+                                                <span className="text-muted-foreground text-xs">
+                                                    {s.mainCraft.craftLevel}
+                                                </span>
+                                                {hqRate !== null && probs !== null && (
+                                                    <HqTierBadge tier={probs.tier} hqRate={hqRate} />
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             <span
@@ -596,11 +625,11 @@ const SynthesisPage = () => {
                                                 : '—'}
                                         </TableCell>
                                         <ProfitCell
-                                            value={hasSkills ? s.expectedProfitPerSingle : s.profitPerSingle}
+                                            value={hasSkills ? s.expectedProfitPerSingle : s.marginPerItem}
                                         />
                                         <RateCell salesPerDay={s.salesPerDay} />
                                         <ProfitCell
-                                            value={hasSkills ? s.expectedProfitPerStack : s.profitPerStack}
+                                            value={hasSkills ? s.expectedProfitPerStack : s.marginPerStack}
                                         />
                                         <RateCell salesPerDay={s.stackSalesPerDay} />
                                         <TableCell className="text-right text-muted-foreground text-xs">
@@ -609,7 +638,8 @@ const SynthesisPage = () => {
                                     </TableRow>
                                     {expandedId === s.id && <ExpandedRow synthesis={s} playerSkills={playerSkills} />}
                                 </>
-                            ))}
+                                );
+                            })}
                         </TableBody>
                     </Table>
 

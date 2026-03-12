@@ -162,8 +162,8 @@ export const synthesisProfits = pgTable(
 
         // denormalized — values computed from ingredient/yield pricing at snapshot time
         totalIngredientCost: integer('total_ingredient_cost').notNull(),
-        profitPerSingle: integer('profit_per_single').notNull(),
-        profitPerStack: integer('profit_per_stack'),
+        marginPerItem: integer('profit_per_single').notNull(),
+        marginPerStack: integer('profit_per_stack'),
         dailyProfitSingle: integer('daily_profit_single'),
         dailyProfitStack: integer('daily_profit_stack'),
         profitHQ1: integer('profit_hq1'),

@@ -23,7 +23,7 @@ const processSynthesis = async (synthesisId: number) => {
     const result = calculateProfit(synthesisId, data.yields, data.ingredients);
     if (!result) return;
     logger.debug(
-        `synthesisId=${synthesisId} profitPerSingle=${result.profitPerSingle} profitPerStack=${result.profitPerStack}`,
+        `synthesisId=${synthesisId} marginPerItem=${result.marginPerItem} marginPerStack=${result.marginPerStack}`,
     );
     await upsertSynthesisProfit({ synthesisId, ...result });
 };

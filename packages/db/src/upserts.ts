@@ -109,8 +109,8 @@ const PROFIT_WINDOW_HOURS = 24;
 export const upsertSynthesisProfit = async ({
     synthesisId,
     totalIngredientCost,
-    profitPerSingle,
-    profitPerStack,
+    marginPerItem,
+    marginPerStack,
     dailyProfitSingle,
     dailyProfitStack,
     profitHQ1,
@@ -131,8 +131,8 @@ export const upsertSynthesisProfit = async ({
 }: {
     synthesisId: number;
     totalIngredientCost: number;
-    profitPerSingle: number;
-    profitPerStack: number | null;
+    marginPerItem: number;
+    marginPerStack: number | null;
     dailyProfitSingle: number | null;
     dailyProfitStack: number | null;
     profitHQ1: number | null;
@@ -195,8 +195,8 @@ export const upsertSynthesisProfit = async ({
             await tx
                 .update(synthesisProfits)
                 .set({
-                    profitPerSingle,
-                    profitPerStack,
+                    marginPerItem,
+                    marginPerStack,
                     dailyProfitSingle,
                     dailyProfitStack,
                     salesPerDay,
@@ -227,8 +227,8 @@ export const upsertSynthesisProfit = async ({
                 .insert(synthesisProfits)
                 .values({
                     synthesisId,
-                    profitPerSingle,
-                    profitPerStack,
+                    marginPerItem,
+                    marginPerStack,
                     dailyProfitSingle,
                     dailyProfitStack,
                     salesPerDay,
