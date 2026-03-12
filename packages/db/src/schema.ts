@@ -133,20 +133,39 @@ export const synthesisIngredientItems = pgTable(
     ],
 );
 
+// Profitability snapshot — denormalization rationale
+//
+// These three tables record a point-in-time snapshot of a synthesis's profitability
+// calculation. All data that could otherwise be derived by joining across
+// `item_auction_prices`, `item_vendor_prices`, `synthesis_yield_items`, and
+// `synthesis_ingredient_items` is copied and stored here so that:
+//   1. The UI can render a complete cost/revenue breakdown from a single snapshot
+//      read, with no joins into price-history tables.
+//   2. Historical snapshots remain accurate after prices change — the numbers
+//      displayed reflect what was true at calculation time.
+//   3. Sorting by profit is a plain indexed scan on this table; no aggregation
+//      subqueries are needed at query time.
+
 export const synthesisProfits = pgTable(
     'synthesis_profits',
     {
+        // identity
         id: serial('id').primaryKey(),
         synthesisId: integer('synthesis_id')
             .references(() => syntheses.id)
             .notNull(),
+        createdAt: timestamp('created_at').notNull().defaultNow(),
+
+        // denormalized — prices copied from item_auction_prices at snapshot time
+        salesPerDay: real('sales_per_day'),
+        stackSalesPerDay: real('stack_sales_per_day'),
+
+        // denormalized — values computed from ingredient/yield pricing at snapshot time
+        totalIngredientCost: integer('total_ingredient_cost').notNull(),
         profitPerSingle: integer('profit_per_single').notNull(),
         profitPerStack: integer('profit_per_stack'),
         dailyProfitSingle: integer('daily_profit_single'),
         dailyProfitStack: integer('daily_profit_stack'),
-        salesPerDay: real('sales_per_day'),
-        stackSalesPerDay: real('stack_sales_per_day'),
-        totalIngredientCost: integer('total_ingredient_cost').notNull(),
         profitHQ1: integer('profit_hq1'),
         profitHQ2: integer('profit_hq2'),
         profitHQ3: integer('profit_hq3'),
@@ -158,7 +177,6 @@ export const synthesisProfits = pgTable(
         expectedProfitStackT1: integer('expected_profit_stack_t1'),
         expectedProfitStackT2: integer('expected_profit_stack_t2'),
         expectedProfitStackT3: integer('expected_profit_stack_t3'),
-        createdAt: timestamp('created_at').notNull().defaultNow(),
     },
     (t) => [index('synthesis_profits_synthesis_id_created_at_idx').on(t.synthesisId, t.createdAt)],
 );
@@ -166,14 +184,21 @@ export const synthesisProfits = pgTable(
 export const synthesisProfitIngredients = pgTable(
     'synthesis_profit_ingredients',
     {
+        // identity
         snapshotId: integer('snapshot_id')
             .references(() => synthesisProfits.id, { onDelete: 'cascade' })
             .notNull(),
         itemId: integer('item_id')
             .references(() => items.id)
             .notNull(),
+
+        // denormalized — copied from items and synthesis_ingredient_items at snapshot time
         name: varchar('name', { length: 128 }).notNull(),
         quantity: integer('quantity').notNull(),
+        stackSize: integer('stack_size').notNull(),
+
+        // denormalized — prices copied from item_auction_prices / item_vendor_prices at snapshot time;
+        // unitCost, priceSource, and totalCost are computed from those prices
         auctionSinglePerUnit: integer('auction_single_per_unit'),
         auctionStackPerUnit: integer('auction_stack_per_unit'),
         vendorPerUnit: integer('vendor_per_unit'),
@@ -187,6 +212,7 @@ export const synthesisProfitIngredients = pgTable(
 export const synthesisProfitYieldTiers = pgTable(
     'synthesis_profit_yield_tiers',
     {
+        // identity
         snapshotId: integer('snapshot_id')
             .references(() => synthesisProfits.id, { onDelete: 'cascade' })
             .notNull(),
@@ -194,9 +220,14 @@ export const synthesisProfitYieldTiers = pgTable(
         itemId: integer('item_id')
             .references(() => items.id)
             .notNull(),
+
+        // denormalized — copied from items and synthesis_yield_items at snapshot time
         name: varchar('name', { length: 128 }).notNull(),
         quantity: integer('quantity').notNull(),
         stackSize: integer('stack_size').notNull(),
+
+        // denormalized — prices copied from item_auction_prices at snapshot time;
+        // revenue and revenueSource are computed from those prices
         auctionSinglePerUnit: integer('auction_single_per_unit'),
         auctionStackPerUnit: integer('auction_stack_per_unit'),
         revenue: integer('revenue').notNull(),

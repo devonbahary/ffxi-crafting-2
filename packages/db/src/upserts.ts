@@ -152,6 +152,7 @@ export const upsertSynthesisProfit = async ({
         itemId: number;
         name: string;
         quantity: number;
+        stackSize: number;
         auctionSinglePerUnit: number | null;
         auctionStackPerUnit: number | null;
         vendorPerUnit: number | null;
@@ -256,6 +257,7 @@ export const upsertSynthesisProfit = async ({
                     itemId: ing.itemId,
                     name: ing.name,
                     quantity: ing.quantity,
+                    stackSize: ing.stackSize,
                     auctionSinglePerUnit: ing.auctionSinglePerUnit,
                     auctionStackPerUnit: ing.auctionStackPerUnit,
                     vendorPerUnit: ing.vendorPerUnit,

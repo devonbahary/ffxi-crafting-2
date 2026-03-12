@@ -377,6 +377,7 @@ export type IngredientCost = {
     itemId: number;
     name: string;
     quantity: number;
+    stackSize: number;
     auctionSinglePerUnit: number | null;
     auctionStackPerUnit: number | null;
     vendorPerUnit: number | null;
@@ -532,6 +533,7 @@ export const getProfitableSyntheses = async ({
             itemId: r.itemId,
             name: r.name,
             quantity: r.quantity,
+            stackSize: r.stackSize,
             auctionSinglePerUnit: r.auctionSinglePerUnit,
             auctionStackPerUnit: r.auctionStackPerUnit,
             vendorPerUnit: r.vendorPerUnit,
@@ -599,6 +601,7 @@ export const getProfitableSyntheses = async ({
         itemId: number;
         name: string;
         quantity: number;
+        stackSize: number;
         auctionSinglePerUnit: number | null;
         auctionStackPerUnit: number | null;
         vendorPerUnit: number | null;
@@ -702,7 +705,7 @@ export const getProfitableSyntheses = async ({
             }
 
             const stackT =
-                tier === -1 || tier === 0
+                tier === 0
                     ? row.expectedProfitStackT0
                     : tier === 1
                       ? row.expectedProfitStackT1

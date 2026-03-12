@@ -22,11 +22,10 @@ const processSynthesis = async (synthesisId: number) => {
     }
     const result = calculateProfit(synthesisId, data.yields, data.ingredients);
     if (!result) return;
-    const { salesPerDay, stackSalesPerDay } = data.yields[0]!;
     logger.debug(
         `synthesisId=${synthesisId} profitPerSingle=${result.profitPerSingle} profitPerStack=${result.profitPerStack}`,
     );
-    await upsertSynthesisProfit({ synthesisId, ...result, salesPerDay, stackSalesPerDay });
+    await upsertSynthesisProfit({ synthesisId, ...result });
 };
 
 await boss.work<ProfitJob>('synthesis-profit.update', { batchSize: 5 }, async (jobs) => {

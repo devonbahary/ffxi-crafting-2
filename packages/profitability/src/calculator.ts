@@ -35,6 +35,7 @@ export type IngredientSnapshot = {
     itemId: number;
     name: string;
     quantity: number;
+    stackSize: number;
     auctionSinglePerUnit: number | null;
     auctionStackPerUnit: number | null;
     vendorPerUnit: number | null;
@@ -135,6 +136,7 @@ export const calculateProfit = (
             itemId: ingredient.itemId,
             name: ingredient.name,
             quantity: ingredient.quantity,
+            stackSize: ingredient.stackSize,
             auctionSinglePerUnit,
             auctionStackPerUnit,
             vendorPerUnit,
