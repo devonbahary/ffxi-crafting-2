@@ -4,6 +4,24 @@ import { hc } from 'hono/client';
 import type { AppType, ProfitableSynthesis } from '@ffxi-crafting/api';
 import { CRAFTS } from '@ffxi-crafting/types';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
+
+const TIER_BADGE_CLASS: Record<string, string> = {
+    NQ: 'bg-secondary text-secondary-foreground',
+    HQ1: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+    HQ2: 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200',
+    HQ3: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+};
+
+const TierBadge = ({ tier }: { tier: string }) => (
+    <Badge className={TIER_BADGE_CLASS[tier] ?? TIER_BADGE_CLASS.NQ}>{tier}</Badge>
+);
+import {
     Table,
     TableBody,
     TableCell,
@@ -12,7 +30,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatGil } from '@/lib/utils';
+import { formatGil, formatUpdatedAt } from '@/lib/utils';
 import { getCraftColor, getCrystalColor } from '@/lib/craft-colors';
 import {
     getSynthesisTierProbabilities,
@@ -107,7 +125,7 @@ const ExpandedRow = ({
 
     return (
         <TableRow className="bg-muted/40 hover:bg-muted/40">
-            <TableCell colSpan={9} className="p-4 space-y-4">
+            <TableCell colSpan={10} className="p-4 space-y-4">
                 <div>
                     <p className="text-sm font-semibold mb-2">Sale prices</p>
                     <table className="text-sm">
@@ -126,7 +144,7 @@ const ExpandedRow = ({
                         </thead>
                         <tbody>
                             <tr>
-                                <td className="pr-4 text-muted-foreground">NQ</td>
+                                <td className="pr-4"><TierBadge tier="NQ" /></td>
                                 <td className="pr-8">{nqYield.name}</td>
                                 <td className="text-right pr-4">{nqYield.quantity}</td>
                                 <td className={`text-right pr-4 ${nqYield.revenueSource === 'single' ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}>
@@ -151,7 +169,7 @@ const ExpandedRow = ({
                                     const profit = tierRevenue !== null ? tierRevenue - totalCost : null;
                                     return (
                                         <tr key={`${tier.tier}-${item.itemId}`}>
-                                            <td className="pr-4 text-muted-foreground">{tier.tier}</td>
+                                            <td className="pr-4"><TierBadge tier={tier.tier} /></td>
                                             <td className="pr-8">{item.name}</td>
                                             <td className="text-right pr-4">{item.quantity}</td>
                                             <td className={`text-right pr-4 ${item.revenueSource === 'single' ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}>
@@ -196,7 +214,7 @@ const ExpandedRow = ({
                                     <tbody>
                                         {tierContribs.map((t) => (
                                             <tr key={t.label}>
-                                                <td className="pr-3 w-10">{t.label}</td>
+                                                <td className="pr-3"><TierBadge tier={t.label} /></td>
                                                 <td className="pr-2 text-right">{formatGil(Math.round(t.revenue))}</td>
                                                 <td className="pr-2">×</td>
                                                 <td className="pr-3 w-12">{formatChance(t.prob)}</td>
@@ -464,6 +482,7 @@ const SynthesisPage = () => {
             {error && <p className="text-destructive">Error: {error}</p>}
 
             {!loading && !error && data && data.syntheses.length > 0 && (
+                <TooltipProvider>
                 <>
                     <Table>
                         <TableHeader>
@@ -477,6 +496,7 @@ const SynthesisPage = () => {
                                 <TableHead className="text-right">Rate</TableHead>
                                 <TableHead className="text-right">Profit/Stack</TableHead>
                                 <TableHead className="text-right">Rate</TableHead>
+                                <TableHead className="text-right">Updated</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -506,12 +526,44 @@ const SynthesisPage = () => {
                                                 {s.crystal}
                                             </span>
                                         </TableCell>
-                                        <TableCell>
-                                            {s.nqYield.name}
-                                            {s.nqYield.quantity > 1
-                                                ? ` ×${s.nqYield.quantity}`
-                                                : ''}
-                                        </TableCell>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <TableCell className="cursor-default">
+                                                    {s.nqYield.name}
+                                                    {s.nqYield.quantity > 1
+                                                        ? ` ×${s.nqYield.quantity}`
+                                                        : ''}
+                                                </TableCell>
+                                            </TooltipTrigger>
+                                                <TooltipContent side="right">
+                                                    <div className="space-y-1">
+                                                        <div className="flex justify-between gap-4">
+                                                            <span className="flex items-center gap-1.5">
+                                                                <TierBadge tier="NQ" />
+                                                                {s.nqYield.name}
+                                                                {s.nqYield.quantity > 1 ? ` ×${s.nqYield.quantity}` : ''}
+                                                            </span>
+                                                            <span className={`font-medium ${s.nqYield.revenue >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                                {formatGil(s.nqYield.revenue)}
+                                                            </span>
+                                                        </div>
+                                                        {s.hqYields.map((tier) =>
+                                                            tier.items.map((item) => (
+                                                                <div key={`${tier.tier}-${item.itemId}`} className="flex justify-between gap-4">
+                                                                    <span className="flex items-center gap-1.5">
+                                                                        <TierBadge tier={tier.tier} />
+                                                                        {item.name}
+                                                                        {item.quantity > 1 ? ` ×${item.quantity}` : ''}
+                                                                    </span>
+                                                                    <span className={`font-medium ${item.revenue >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                                        {formatGil(item.revenue)}
+                                                                    </span>
+                                                                </div>
+                                                            )),
+                                                        )}
+                                                    </div>
+                                                </TooltipContent>
+                                            </Tooltip>
                                         <TableCell className="text-right">
                                             {s.nqYield.auctionPrice !== null ? formatGil(s.nqYield.auctionPrice) : '—'}
                                         </TableCell>
@@ -528,6 +580,9 @@ const SynthesisPage = () => {
                                             value={hasSkills ? s.expectedProfitPerStack : s.profitPerStack}
                                         />
                                         <RateCell salesPerDay={s.stackSalesPerDay} />
+                                        <TableCell className="text-right text-muted-foreground text-xs">
+                                            {formatUpdatedAt(s.priceUpdatedAt)}
+                                        </TableCell>
                                     </TableRow>
                                     {expandedId === s.id && <ExpandedRow synthesis={s} playerSkills={playerSkills} />}
                                 </>
@@ -555,6 +610,7 @@ const SynthesisPage = () => {
                         </button>
                     </div>
                 </>
+                </TooltipProvider>
             )}
 
             {!loading && !error && data && data.syntheses.length === 0 && (

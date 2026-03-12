@@ -4,7 +4,7 @@ import { hc } from 'hono/client';
 import type { AppType, ItemDetail, SynthesisDetail } from '@ffxi-crafting/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SynthesisRow } from '@/SynthesisRow';
-import { formatGil } from '@/lib/utils';
+import { formatGil, formatUpdatedAt } from '@/lib/utils';
 import { getSalesRating, getRatingColor } from '@/lib/sales-rating';
 
 const client = hc<AppType>('/');
@@ -24,7 +24,7 @@ const RatingCell = ({ salesPerDay }: { salesPerDay: number | null }) => {
     );
 };
 
-const EXPANDED_COL_SPAN = 7;
+const EXPANDED_COL_SPAN = 8;
 
 const ItemExpandedRow = ({ item }: { item: ItemDetail }) => {
     const [syntheses, setSyntheses] = useState<SynthesisDetail[] | null>(null);
@@ -212,6 +212,7 @@ const ItemsPage = () => {
                                 <TableHead className="text-right">AH Stack Price</TableHead>
                                 <TableHead>Rate</TableHead>
                                 <TableHead className="text-right">Vendor Price</TableHead>
+                                <TableHead className="text-right">Updated</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -250,6 +251,9 @@ const ItemsPage = () => {
                                                           ...item.vendors.map((v) => v.price),
                                                       ),
                                                   )}
+                                        </TableCell>
+                                        <TableCell className="text-right text-muted-foreground text-xs">
+                                            {formatUpdatedAt(item.auctionUpdatedAt)}
                                         </TableCell>
                                     </TableRow>
                                     {expandedItemId === item.id && (

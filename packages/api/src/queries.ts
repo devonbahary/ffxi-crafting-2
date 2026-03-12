@@ -59,6 +59,7 @@ export type ItemDetail = {
     auctionSalesPerDay: number | null;
     auctionStackPrice: number | null;
     auctionStackSalesPerDay: number | null;
+    auctionUpdatedAt: Date | null;
     vendors: VendorInfo[];
 };
 
@@ -112,6 +113,7 @@ export const searchItemsByName = async ({
                 salesPerDay: itemAuctionPrices.salesPerDay,
                 stackPrice: itemAuctionPrices.stackPrice,
                 stackSalesPerDay: itemAuctionPrices.stackSalesPerDay,
+                createdAt: itemAuctionPrices.createdAt,
             })
             .from(itemAuctionPrices)
             .innerJoin(
@@ -156,6 +158,7 @@ export const searchItemsByName = async ({
                 auctionSalesPerDay: auction?.salesPerDay ?? null,
                 auctionStackPrice: auction?.stackPrice ?? null,
                 auctionStackSalesPerDay: auction?.stackSalesPerDay ?? null,
+                auctionUpdatedAt: auction?.createdAt ?? null,
                 vendors: vendorsByItemId.get(item.id) ?? [],
             };
         }),
@@ -395,6 +398,7 @@ export type ProfitableSynthesis = {
     stackSalesPerDay: number | null;
     expectedProfitPerSingle: number | null;
     expectedProfitPerStack: number | null;
+    priceUpdatedAt: Date | null;
     hqYields: HqYieldTier[];
     nqYield: {
         itemId: number;
@@ -509,6 +513,7 @@ export const getProfitableSyntheses = async ({
             expectedProfitStackT1: number | null;
             expectedProfitStackT2: number | null;
             expectedProfitStackT3: number | null;
+            createdAt: Date;
         },
         crafts: { mainCraft: CraftRequirement; subCrafts: CraftRequirement[] },
         crystalName: string,
@@ -569,6 +574,7 @@ export const getProfitableSyntheses = async ({
             stackSalesPerDay: profit.stackSalesPerDay,
             expectedProfitPerSingle,
             expectedProfitPerStack,
+            priceUpdatedAt: profit.createdAt,
             hqYields,
             nqYield: {
                 itemId: nqYieldRow.itemId,
@@ -634,6 +640,7 @@ export const getProfitableSyntheses = async ({
                 expectedProfitStackT1: synthesisProfits.expectedProfitStackT1,
                 expectedProfitStackT2: synthesisProfits.expectedProfitStackT2,
                 expectedProfitStackT3: synthesisProfits.expectedProfitStackT3,
+                createdAt: synthesisProfits.createdAt,
             })
             .from(synthesisProfits)
             .innerJoin(latestProfitSub, profitJoin)
@@ -817,6 +824,7 @@ export const getProfitableSyntheses = async ({
                 expectedProfitStackT1: synthesisProfits.expectedProfitStackT1,
                 expectedProfitStackT2: synthesisProfits.expectedProfitStackT2,
                 expectedProfitStackT3: synthesisProfits.expectedProfitStackT3,
+                createdAt: synthesisProfits.createdAt,
             })
             .from(synthesisProfits)
             .innerJoin(latestProfitSub, profitJoin)
