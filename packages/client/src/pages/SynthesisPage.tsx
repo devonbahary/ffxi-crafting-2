@@ -153,8 +153,8 @@ const ExpandedRow = ({
                                 <th className="text-right pr-4 font-normal">Revenue</th>
                                 <th className="w-16 text-right pr-6 font-normal">Δ%</th>
                                 {showChance && <th className="text-right pr-4 font-normal">Chance</th>}
-                                <th className="text-right pr-4 font-normal">Margin/Item</th>
-                                <th className="text-right font-normal">Margin/Stack</th>
+                                <th className="text-right pr-4 font-normal">Unit Profit (Single)</th>
+                                <th className="text-right font-normal">Unit Profit (Stack)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -465,8 +465,8 @@ const SynthesisPage = () => {
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="single">By Margin/Item</SelectItem>
-                        <SelectItem value="stack">By Margin/Stack</SelectItem>
+                        <SelectItem value="single">By Unit Profit (Single)</SelectItem>
+                        <SelectItem value="stack">By Unit Profit (Stack)</SelectItem>
                         <SelectItem value="best">Best of Either</SelectItem>
                         <SelectItem value="daily">By Daily Profit</SelectItem>
                     </SelectContent>
@@ -530,9 +530,9 @@ const SynthesisPage = () => {
                                 <TableHead>NQ Yield</TableHead>
                                 <TableHead className="text-right">AH Price</TableHead>
                                 <TableHead className="text-right">AH Stack</TableHead>
-                                <TableHead className="text-right">Margin/Item</TableHead>
+                                <TableHead className="text-right">Unit Profit (Single)</TableHead>
                                 <TableHead className="text-right">Rate</TableHead>
-                                <TableHead className="text-right">Margin/Stack</TableHead>
+                                <TableHead className="text-right">Unit Profit (Stack)</TableHead>
                                 <TableHead className="text-right">Rate</TableHead>
                                 <TableHead className="text-right">Updated</TableHead>
                             </TableRow>

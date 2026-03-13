@@ -62,9 +62,6 @@ export type ProfitResult = {
     unitMarginAsStack: number | null; // (nqStackRevenue - cost) / nqQuantity — per item sold as stack
     dailyProfitSingle: number | null;
     dailyProfitStack: number | null;
-    profitHQ1: number | null;
-    profitHQ2: number | null;
-    profitHQ3: number | null;
     expectedProfitT0: number;
     expectedProfitT1: number;
     expectedProfitT2: number;
@@ -220,11 +217,6 @@ export const calculateProfit = (
         ? Math.round((nqStackRevenue - totalIngredientCost) / nqQuantity)
         : null;
 
-    // HQ profits (per synthesis — used for expected profit calculation only, not displayed)
-    const profitHQ1 = hq1Revenue > 0 ? Math.round(hq1Revenue - totalIngredientCost) : null;
-    const profitHQ2 = hq2Revenue > 0 ? Math.round(hq2Revenue - totalIngredientCost) : null;
-    const profitHQ3 = hq3Revenue > 0 ? Math.round(hq3Revenue - totalIngredientCost) : null;
-
     // When a synthesis has no yield defined for a given HQ tier, an HQ result at that
     // tier still occurs — it just produces the next-lower defined tier's item. Fall back
     // cascading so that missing tiers don't contribute zero revenue to the expected value.
@@ -339,9 +331,6 @@ export const calculateProfit = (
         unitMarginAsStack,
         dailyProfitSingle,
         dailyProfitStack,
-        profitHQ1,
-        profitHQ2,
-        profitHQ3,
         expectedProfitT0,
         expectedProfitT1,
         expectedProfitT2,

@@ -121,9 +121,6 @@ export const upsertSynthesisProfit = async ({
     unitMarginAsStack,
     dailyProfitSingle,
     dailyProfitStack,
-    profitHQ1,
-    profitHQ2,
-    profitHQ3,
     expectedProfitT0,
     expectedProfitT1,
     expectedProfitT2,
@@ -143,9 +140,6 @@ export const upsertSynthesisProfit = async ({
     unitMarginAsStack: number | null;
     dailyProfitSingle: number | null;
     dailyProfitStack: number | null;
-    profitHQ1: number | null;
-    profitHQ2: number | null;
-    profitHQ3: number | null;
     expectedProfitT0: number;
     expectedProfitT1: number;
     expectedProfitT2: number;
@@ -202,9 +196,6 @@ export const upsertSynthesisProfit = async ({
         unitMarginAsStack: capIntN(unitMarginAsStack),
         dailyProfitSingle: capIntN(dailyProfitSingle),
         dailyProfitStack: capIntN(dailyProfitStack),
-        profitHQ1: capIntN(profitHQ1),
-        profitHQ2: capIntN(profitHQ2),
-        profitHQ3: capIntN(profitHQ3),
         expectedProfitT0: capInt(expectedProfitT0),
         expectedProfitT1: capInt(expectedProfitT1),
         expectedProfitT2: capInt(expectedProfitT2),
