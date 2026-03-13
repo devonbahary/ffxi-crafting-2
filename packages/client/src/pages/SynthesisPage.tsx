@@ -625,11 +625,11 @@ const SynthesisPage = () => {
                                                 : '—'}
                                         </TableCell>
                                         <ProfitCell
-                                            value={hasSkills ? s.expectedProfitPerSingle : s.unitMarginAsSingle}
+                                            value={hasSkills ? s.expectedUnitProfitAsSingle : s.unitProfitAsSingle}
                                         />
                                         <RateCell salesPerDay={s.salesPerDay} />
                                         <ProfitCell
-                                            value={hasSkills ? s.expectedProfitPerStack : s.unitMarginAsStack}
+                                            value={hasSkills ? s.expectedUnitProfitAsStack : s.unitProfitAsStack}
                                         />
                                         <RateCell salesPerDay={s.stackSalesPerDay} />
                                         <TableCell className="text-right text-muted-foreground text-xs">

@@ -117,18 +117,18 @@ const PROFIT_WINDOW_HOURS = 24;
 export const upsertSynthesisProfit = async ({
     synthesisId,
     totalIngredientCost,
-    unitMarginAsSingle,
-    unitMarginAsStack,
-    dailyProfitSingle,
-    dailyProfitStack,
-    expectedProfitT0,
-    expectedProfitT1,
-    expectedProfitT2,
-    expectedProfitT3,
-    expectedProfitStackT0,
-    expectedProfitStackT1,
-    expectedProfitStackT2,
-    expectedProfitStackT3,
+    unitProfitAsSingle,
+    unitProfitAsStack,
+    profitPerDayAsSingle,
+    profitPerDayAsStack,
+    expectedUnitProfitAsSingleT0,
+    expectedUnitProfitAsSingleT1,
+    expectedUnitProfitAsSingleT2,
+    expectedUnitProfitAsSingleT3,
+    expectedUnitProfitAsStackT0,
+    expectedUnitProfitAsStackT1,
+    expectedUnitProfitAsStackT2,
+    expectedUnitProfitAsStackT3,
     salesPerDay,
     stackSalesPerDay,
     ingredientSnapshot,
@@ -136,18 +136,18 @@ export const upsertSynthesisProfit = async ({
 }: {
     synthesisId: number;
     totalIngredientCost: number;
-    unitMarginAsSingle: number;
-    unitMarginAsStack: number | null;
-    dailyProfitSingle: number | null;
-    dailyProfitStack: number | null;
-    expectedProfitT0: number;
-    expectedProfitT1: number;
-    expectedProfitT2: number;
-    expectedProfitT3: number;
-    expectedProfitStackT0: number | null;
-    expectedProfitStackT1: number | null;
-    expectedProfitStackT2: number | null;
-    expectedProfitStackT3: number | null;
+    unitProfitAsSingle: number;
+    unitProfitAsStack: number | null;
+    profitPerDayAsSingle: number | null;
+    profitPerDayAsStack: number | null;
+    expectedUnitProfitAsSingleT0: number;
+    expectedUnitProfitAsSingleT1: number;
+    expectedUnitProfitAsSingleT2: number;
+    expectedUnitProfitAsSingleT3: number;
+    expectedUnitProfitAsStackT0: number | null;
+    expectedUnitProfitAsStackT1: number | null;
+    expectedUnitProfitAsStackT2: number | null;
+    expectedUnitProfitAsStackT3: number | null;
     salesPerDay: number;
     stackSalesPerDay: number | null;
     ingredientSnapshot: {
@@ -192,18 +192,18 @@ export const upsertSynthesisProfit = async ({
 
     const capped = {
         totalIngredientCost: capInt(totalIngredientCost),
-        unitMarginAsSingle: capInt(unitMarginAsSingle),
-        unitMarginAsStack: capIntN(unitMarginAsStack),
-        dailyProfitSingle: capIntN(dailyProfitSingle),
-        dailyProfitStack: capIntN(dailyProfitStack),
-        expectedProfitT0: capInt(expectedProfitT0),
-        expectedProfitT1: capInt(expectedProfitT1),
-        expectedProfitT2: capInt(expectedProfitT2),
-        expectedProfitT3: capInt(expectedProfitT3),
-        expectedProfitStackT0: capIntN(expectedProfitStackT0),
-        expectedProfitStackT1: capIntN(expectedProfitStackT1),
-        expectedProfitStackT2: capIntN(expectedProfitStackT2),
-        expectedProfitStackT3: capIntN(expectedProfitStackT3),
+        unitProfitAsSingle: capInt(unitProfitAsSingle),
+        unitProfitAsStack: capIntN(unitProfitAsStack),
+        profitPerDayAsSingle: capIntN(profitPerDayAsSingle),
+        profitPerDayAsStack: capIntN(profitPerDayAsStack),
+        expectedUnitProfitAsSingleT0: capInt(expectedUnitProfitAsSingleT0),
+        expectedUnitProfitAsSingleT1: capInt(expectedUnitProfitAsSingleT1),
+        expectedUnitProfitAsSingleT2: capInt(expectedUnitProfitAsSingleT2),
+        expectedUnitProfitAsSingleT3: capInt(expectedUnitProfitAsSingleT3),
+        expectedUnitProfitAsStackT0: capIntN(expectedUnitProfitAsStackT0),
+        expectedUnitProfitAsStackT1: capIntN(expectedUnitProfitAsStackT1),
+        expectedUnitProfitAsStackT2: capIntN(expectedUnitProfitAsStackT2),
+        expectedUnitProfitAsStackT3: capIntN(expectedUnitProfitAsStackT3),
     };
 
     await db.transaction(async (tx) => {

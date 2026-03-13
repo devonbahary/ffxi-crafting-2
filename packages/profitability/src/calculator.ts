@@ -58,18 +58,18 @@ export type YieldTierSnapshot = {
 
 export type ProfitResult = {
     totalIngredientCost: number;
-    unitMarginAsSingle: number; // (nqSingleRevenue - cost) / nqQuantity — per item sold as single
-    unitMarginAsStack: number | null; // (nqStackRevenue - cost) / nqQuantity — per item sold as stack
-    dailyProfitSingle: number | null;
-    dailyProfitStack: number | null;
-    expectedProfitT0: number;
-    expectedProfitT1: number;
-    expectedProfitT2: number;
-    expectedProfitT3: number;
-    expectedProfitStackT0: number | null;
-    expectedProfitStackT1: number | null;
-    expectedProfitStackT2: number | null;
-    expectedProfitStackT3: number | null;
+    unitProfitAsSingle: number; // (nqSingleRevenue - cost) / nqQuantity — per item sold as single
+    unitProfitAsStack: number | null; // (nqStackRevenue - cost) / nqQuantity — per item sold as stack
+    profitPerDayAsSingle: number | null;
+    profitPerDayAsStack: number | null;
+    expectedUnitProfitAsSingleT0: number;
+    expectedUnitProfitAsSingleT1: number;
+    expectedUnitProfitAsSingleT2: number;
+    expectedUnitProfitAsSingleT3: number;
+    expectedUnitProfitAsStackT0: number | null;
+    expectedUnitProfitAsStackT1: number | null;
+    expectedUnitProfitAsStackT2: number | null;
+    expectedUnitProfitAsStackT3: number | null;
     salesPerDay: number;
     stackSalesPerDay: number | null;
     ingredientSnapshot: IngredientSnapshot[];
@@ -205,7 +205,7 @@ export const calculateProfit = (
     const nqSingleRevenue = yieldTierSnapshot
         .filter((y) => y.tier === 'NQ')
         .reduce((sum, y) => sum + (y.auctionSinglePerUnit ?? 0) * y.quantity, 0);
-    const unitMarginAsSingle = Math.round((nqSingleRevenue - totalIngredientCost) / nqQuantity);
+    const unitProfitAsSingle = Math.round((nqSingleRevenue - totalIngredientCost) / nqQuantity);
 
     const nqItems = yieldTierSnapshot.filter((y) => y.tier === 'NQ');
     const hasNqStack = nqItems.some((y) => y.auctionStackPerUnit !== null && y.stackSize > 1);
@@ -213,7 +213,7 @@ export const calculateProfit = (
         (sum, y) => sum + (y.auctionStackPerUnit ?? 0) * y.quantity,
         0,
     );
-    const unitMarginAsStack = hasNqStack
+    const unitProfitAsStack = hasNqStack
         ? Math.round((nqStackRevenue - totalIngredientCost) / nqQuantity)
         : null;
 
@@ -229,28 +229,28 @@ export const calculateProfit = (
 
     // Expected margin per item (normalized by nqQuantity)
     const revenues = { nq: nqRevenue, hq1: effHq1Revenue, hq2: effHq2Revenue, hq3: effHq3Revenue };
-    const expectedProfitT0 = calcExpected(
+    const expectedUnitProfitAsSingleT0 = calcExpected(
         HQ_RATES[0],
         HQ_DIST_T0,
         revenues,
         totalIngredientCost,
         nqQuantity,
     );
-    const expectedProfitT1 = calcExpected(
+    const expectedUnitProfitAsSingleT1 = calcExpected(
         HQ_RATES[1],
         HQ_DIST_T1_PLUS,
         revenues,
         totalIngredientCost,
         nqQuantity,
     );
-    const expectedProfitT2 = calcExpected(
+    const expectedUnitProfitAsSingleT2 = calcExpected(
         HQ_RATES[2],
         HQ_DIST_T1_PLUS,
         revenues,
         totalIngredientCost,
         nqQuantity,
     );
-    const expectedProfitT3 = calcExpected(
+    const expectedUnitProfitAsSingleT3 = calcExpected(
         HQ_RATES[3],
         HQ_DIST_T1_PLUS,
         revenues,
@@ -259,10 +259,10 @@ export const calculateProfit = (
     );
 
     // Expected margin per item — stack pricing (normalized by nqQuantity)
-    let expectedProfitStackT0: number | null = null;
-    let expectedProfitStackT1: number | null = null;
-    let expectedProfitStackT2: number | null = null;
-    let expectedProfitStackT3: number | null = null;
+    let expectedUnitProfitAsStackT0: number | null = null;
+    let expectedUnitProfitAsStackT1: number | null = null;
+    let expectedUnitProfitAsStackT2: number | null = null;
+    let expectedUnitProfitAsStackT3: number | null = null;
     if (hasNqStack) {
         const hq1StackRevenue = yieldTierSnapshot
             .filter((y) => y.tier === 'HQ1')
@@ -282,28 +282,28 @@ export const calculateProfit = (
             hq2: effHq2StackRevenue,
             hq3: effHq3StackRevenue,
         };
-        expectedProfitStackT0 = calcExpected(
+        expectedUnitProfitAsStackT0 = calcExpected(
             HQ_RATES[0],
             HQ_DIST_T0,
             stackRevenues,
             totalIngredientCost,
             nqQuantity,
         );
-        expectedProfitStackT1 = calcExpected(
+        expectedUnitProfitAsStackT1 = calcExpected(
             HQ_RATES[1],
             HQ_DIST_T1_PLUS,
             stackRevenues,
             totalIngredientCost,
             nqQuantity,
         );
-        expectedProfitStackT2 = calcExpected(
+        expectedUnitProfitAsStackT2 = calcExpected(
             HQ_RATES[2],
             HQ_DIST_T1_PLUS,
             stackRevenues,
             totalIngredientCost,
             nqQuantity,
         );
-        expectedProfitStackT3 = calcExpected(
+        expectedUnitProfitAsStackT3 = calcExpected(
             HQ_RATES[3],
             HQ_DIST_T1_PLUS,
             stackRevenues,
@@ -319,26 +319,27 @@ export const calculateProfit = (
     // stackSalesPerDay is stack transactions/day; multiply by stackSize to get items/day
     const nqStackSize = nqYieldWithAuction?.stackSize ?? 1;
 
-    const dailyProfitSingle = salesPerDay > 0 ? Math.round(unitMarginAsSingle * salesPerDay) : null;
-    const dailyProfitStack =
-        unitMarginAsStack !== null && stackSalesPerDay !== null && stackSalesPerDay > 0
-            ? Math.round(unitMarginAsStack * stackSalesPerDay * nqStackSize)
+    const profitPerDayAsSingle =
+        salesPerDay > 0 ? Math.round(unitProfitAsSingle * salesPerDay) : null;
+    const profitPerDayAsStack =
+        unitProfitAsStack !== null && stackSalesPerDay !== null && stackSalesPerDay > 0
+            ? Math.round(unitProfitAsStack * stackSalesPerDay * nqStackSize)
             : null;
 
     return {
         totalIngredientCost,
-        unitMarginAsSingle,
-        unitMarginAsStack,
-        dailyProfitSingle,
-        dailyProfitStack,
-        expectedProfitT0,
-        expectedProfitT1,
-        expectedProfitT2,
-        expectedProfitT3,
-        expectedProfitStackT0,
-        expectedProfitStackT1,
-        expectedProfitStackT2,
-        expectedProfitStackT3,
+        unitProfitAsSingle,
+        unitProfitAsStack,
+        profitPerDayAsSingle,
+        profitPerDayAsStack,
+        expectedUnitProfitAsSingleT0,
+        expectedUnitProfitAsSingleT1,
+        expectedUnitProfitAsSingleT2,
+        expectedUnitProfitAsSingleT3,
+        expectedUnitProfitAsStackT0,
+        expectedUnitProfitAsStackT1,
+        expectedUnitProfitAsStackT2,
+        expectedUnitProfitAsStackT3,
         salesPerDay,
         stackSalesPerDay,
         ingredientSnapshot,
