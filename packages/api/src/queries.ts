@@ -391,8 +391,8 @@ export type ProfitableSynthesis = {
     mainCraft: CraftRequirement;
     subCrafts: CraftRequirement[];
     crystal: string;
-    marginPerItem: number;
-    marginPerStack: number | null;
+    unitMarginAsSingle: number;
+    unitMarginAsStack: number | null;
     dailyProfitSingle: number | null;
     dailyProfitStack: number | null;
     salesPerDay: number | null;
@@ -500,8 +500,8 @@ export const getProfitableSyntheses = async ({
         sid: number,
         snapshotId: number,
         profit: {
-            marginPerItem: number;
-            marginPerStack: number | null;
+            unitMarginAsSingle: number;
+            unitMarginAsStack: number | null;
             dailyProfitSingle: number | null;
             dailyProfitStack: number | null;
             salesPerDay: number | null;
@@ -568,8 +568,8 @@ export const getProfitableSyntheses = async ({
             mainCraft: crafts.mainCraft,
             subCrafts: crafts.subCrafts,
             crystal: crystalName,
-            marginPerItem: profit.marginPerItem,
-            marginPerStack: profit.marginPerStack,
+            unitMarginAsSingle: profit.unitMarginAsSingle,
+            unitMarginAsStack: profit.unitMarginAsStack,
             dailyProfitSingle: profit.dailyProfitSingle,
             dailyProfitStack: profit.dailyProfitStack,
             salesPerDay: profit.salesPerDay,
@@ -629,8 +629,8 @@ export const getProfitableSyntheses = async ({
             .select({
                 id: synthesisProfits.id,
                 synthesisId: synthesisProfits.synthesisId,
-                marginPerItem: synthesisProfits.marginPerItem,
-                marginPerStack: synthesisProfits.marginPerStack,
+                unitMarginAsSingle: synthesisProfits.unitMarginAsSingle,
+                unitMarginAsStack: synthesisProfits.unitMarginAsStack,
                 dailyProfitSingle: synthesisProfits.dailyProfitSingle,
                 dailyProfitStack: synthesisProfits.dailyProfitStack,
                 salesPerDay: synthesisProfits.salesPerDay,
@@ -792,15 +792,15 @@ export const getProfitableSyntheses = async ({
     // ── No-skills path: DB-side sort and pagination ───────────────────────────
     const sortExpr =
         sortBy === 'single'
-            ? desc(synthesisProfits.marginPerItem)
+            ? desc(synthesisProfits.unitMarginAsSingle)
             : sortBy === 'stack'
-              ? desc(synthesisProfits.marginPerStack)
+              ? desc(synthesisProfits.unitMarginAsStack)
               : sortBy === 'daily'
                 ? desc(
                       sql`GREATEST(${synthesisProfits.dailyProfitSingle}, COALESCE(${synthesisProfits.dailyProfitStack}, ${synthesisProfits.dailyProfitSingle}))`,
                   )
                 : desc(
-                      sql`GREATEST(${synthesisProfits.marginPerItem}, COALESCE(${synthesisProfits.marginPerStack}, ${synthesisProfits.marginPerItem}))`,
+                      sql`GREATEST(${synthesisProfits.unitMarginAsSingle}, COALESCE(${synthesisProfits.unitMarginAsStack}, ${synthesisProfits.unitMarginAsSingle}))`,
                   );
 
     const nameIdFilter = nameFilteredIds
@@ -813,8 +813,8 @@ export const getProfitableSyntheses = async ({
             .select({
                 id: synthesisProfits.id,
                 synthesisId: synthesisProfits.synthesisId,
-                marginPerItem: synthesisProfits.marginPerItem,
-                marginPerStack: synthesisProfits.marginPerStack,
+                unitMarginAsSingle: synthesisProfits.unitMarginAsSingle,
+                unitMarginAsStack: synthesisProfits.unitMarginAsStack,
                 dailyProfitSingle: synthesisProfits.dailyProfitSingle,
                 dailyProfitStack: synthesisProfits.dailyProfitStack,
                 salesPerDay: synthesisProfits.salesPerDay,

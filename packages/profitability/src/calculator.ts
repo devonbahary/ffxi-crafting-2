@@ -58,8 +58,8 @@ export type YieldTierSnapshot = {
 
 export type ProfitResult = {
     totalIngredientCost: number;
-    marginPerItem: number; // (nqSingleRevenue - cost) / nqQuantity — per item sold as single
-    marginPerStack: number | null; // (nqStackRevenue - cost) / nqQuantity — per item sold as stack
+    unitMarginAsSingle: number; // (nqSingleRevenue - cost) / nqQuantity — per item sold as single
+    unitMarginAsStack: number | null; // (nqStackRevenue - cost) / nqQuantity — per item sold as stack
     dailyProfitSingle: number | null;
     dailyProfitStack: number | null;
     profitHQ1: number | null;
@@ -208,7 +208,7 @@ export const calculateProfit = (
     const nqSingleRevenue = yieldTierSnapshot
         .filter((y) => y.tier === 'NQ')
         .reduce((sum, y) => sum + (y.auctionSinglePerUnit ?? 0) * y.quantity, 0);
-    const marginPerItem = Math.round((nqSingleRevenue - totalIngredientCost) / nqQuantity);
+    const unitMarginAsSingle = Math.round((nqSingleRevenue - totalIngredientCost) / nqQuantity);
 
     const nqItems = yieldTierSnapshot.filter((y) => y.tier === 'NQ');
     const hasNqStack = nqItems.some((y) => y.auctionStackPerUnit !== null && y.stackSize > 1);
@@ -216,7 +216,7 @@ export const calculateProfit = (
         (sum, y) => sum + (y.auctionStackPerUnit ?? 0) * y.quantity,
         0,
     );
-    const marginPerStack = hasNqStack
+    const unitMarginAsStack = hasNqStack
         ? Math.round((nqStackRevenue - totalIngredientCost) / nqQuantity)
         : null;
 
@@ -327,16 +327,16 @@ export const calculateProfit = (
     // stackSalesPerDay is stack transactions/day; multiply by stackSize to get items/day
     const nqStackSize = nqYieldWithAuction?.stackSize ?? 1;
 
-    const dailyProfitSingle = salesPerDay > 0 ? Math.round(marginPerItem * salesPerDay) : null;
+    const dailyProfitSingle = salesPerDay > 0 ? Math.round(unitMarginAsSingle * salesPerDay) : null;
     const dailyProfitStack =
-        marginPerStack !== null && stackSalesPerDay !== null && stackSalesPerDay > 0
-            ? Math.round(marginPerStack * stackSalesPerDay * nqStackSize)
+        unitMarginAsStack !== null && stackSalesPerDay !== null && stackSalesPerDay > 0
+            ? Math.round(unitMarginAsStack * stackSalesPerDay * nqStackSize)
             : null;
 
     return {
         totalIngredientCost,
-        marginPerItem,
-        marginPerStack,
+        unitMarginAsSingle,
+        unitMarginAsStack,
         dailyProfitSingle,
         dailyProfitStack,
         profitHQ1,

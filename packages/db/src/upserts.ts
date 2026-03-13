@@ -117,8 +117,8 @@ const PROFIT_WINDOW_HOURS = 24;
 export const upsertSynthesisProfit = async ({
     synthesisId,
     totalIngredientCost,
-    marginPerItem,
-    marginPerStack,
+    unitMarginAsSingle,
+    unitMarginAsStack,
     dailyProfitSingle,
     dailyProfitStack,
     profitHQ1,
@@ -139,8 +139,8 @@ export const upsertSynthesisProfit = async ({
 }: {
     synthesisId: number;
     totalIngredientCost: number;
-    marginPerItem: number;
-    marginPerStack: number | null;
+    unitMarginAsSingle: number;
+    unitMarginAsStack: number | null;
     dailyProfitSingle: number | null;
     dailyProfitStack: number | null;
     profitHQ1: number | null;
@@ -198,8 +198,8 @@ export const upsertSynthesisProfit = async ({
 
     const capped = {
         totalIngredientCost: capInt(totalIngredientCost),
-        marginPerItem: capInt(marginPerItem),
-        marginPerStack: capIntN(marginPerStack),
+        unitMarginAsSingle: capInt(unitMarginAsSingle),
+        unitMarginAsStack: capIntN(unitMarginAsStack),
         dailyProfitSingle: capIntN(dailyProfitSingle),
         dailyProfitStack: capIntN(dailyProfitStack),
         profitHQ1: capIntN(profitHQ1),
