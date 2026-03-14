@@ -27,8 +27,7 @@
         "paths": {
             "@/*": ["./src/*"],
             "@ffxi-crafting/api": ["../api/src/index.ts"],
-            "@ffxi-crafting/db": ["../db/src/index.ts"],
-            "@ffxi-crafting/types": ["../types/src/index.ts"]
+            "@ffxi-crafting/db": ["../db/src/index.ts"]
         }
     },
     "include": ["src"]

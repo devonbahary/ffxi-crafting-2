@@ -1,5 +1,6 @@
 import axios, { AxiosResponse } from 'axios';
 import { CheerioAPI, load } from 'cheerio';
+import { logger } from '../../shared/logger.js';
 
 export type ParsedItem = {
     ffxiId: number;
@@ -104,13 +105,13 @@ const extractFFXIId = async (href: string, $: CheerioAPI): Promise<number> => {
     if (ffxiId) return ffxiId;
 
     if (ffxiahHref) {
-        console.log(
+        logger.debug(
             `  No ffxiId found directly on page external links, going to follow ${ffxiahHref}`,
         );
         const ffxiahItemId = await extractItemIdFromFFXIAH(ffxiahHref);
         if (ffxiahItemId) return ffxiahItemId;
     } else {
-        console.log(`  No ffxiah redirect found for item with href ${href}`);
+        logger.warn(`  No ffxiah redirect found for item with href ${href}`);
     }
 
     throw new Error(`No ffxiId found for item with href ${href}`);
@@ -156,13 +157,13 @@ const parseVendors = ($: CheerioAPI): ParsedItem['vendors'] => {
             const notesText = $(tds[2]).text().trim();
 
             if (!vendorName) {
-                console.log(`  No vendor name found for row ${row}`);
+                logger.warn(`  No vendor name found for row ${row}`);
                 return;
             }
 
             const price = parsePriceFromNotes(notesText);
             if (price === null) {
-                console.log(
+                logger.info(
                     `  No price in gil found for vendor "${vendorName}" (text: "${notesText}")`,
                 );
                 return;
@@ -172,11 +173,9 @@ const parseVendors = ($: CheerioAPI): ParsedItem['vendors'] => {
             const vendorZone = zoneMatch ? zoneMatch[1].trim() : zoneText || null;
             const vendorLocation = zoneMatch ? zoneMatch[2].trim() : null;
 
-            if (!vendorZone) console.warn(`  No zone found for vendor "${vendorName}"`);
+            if (!vendorZone) logger.warn(`  No zone found for vendor "${vendorName}"`);
             if (!vendorLocation)
-                console.warn(
-                    `  No location found for vendor "${vendorName}" (zone: "${zoneText}")`,
-                );
+                logger.warn(`  No location found for vendor "${vendorName}" (zone: "${zoneText}")`);
 
             vendors.push({ vendorName, vendorZone, vendorLocation, price });
         });

@@ -1,18 +1,20 @@
 {
-    "name": "@ffxi-crafting/enricher",
+    "name": "@ffxi-crafting/workers",
     "version": "0.1.0",
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "tsx src/index.ts",
-        "build": "tsc --build",
+        "discovery": "tsx src/discovery/index.ts",
+        "enricher": "tsx src/enricher/index.ts",
+        "pricer": "tsx src/pricer/index.ts",
+        "profitability": "tsx src/profitability/index.ts",
+        "pricer:requeue": "tsx src/pricer/requeue.ts",
+        "profitability:requeue": "tsx src/profitability/requeue.ts",
         "typecheck": "tsc --noEmit",
-        "start": "node dist/index.js",
         "test": "vitest run"
     },
     "dependencies": {
         "@ffxi-crafting/db": "*",
-        "@ffxi-crafting/types": "*",
         "axios": "^1.7.0",
         "cheerio": "^1.0.0",
         "pino": "^10.3.1"

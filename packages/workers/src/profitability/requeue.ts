@@ -1,5 +1,5 @@
 import { boss, closeDb, db, syntheses } from '@ffxi-crafting/db';
-import type { ProfitJob } from '@ffxi-crafting/types';
+import type { ProfitJob } from '../shared/jobs.js';
 
 await boss.start();
 await boss.createQueue('synthesis-profit.update');

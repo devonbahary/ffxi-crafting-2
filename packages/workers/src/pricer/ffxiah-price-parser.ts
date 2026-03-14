@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { SERVER_IDS, type Server } from '../constants.js';
+import { SERVER_IDS, type Server } from './constants.js';
 
 const FFXIAH_URL = 'https://www.ffxiah.com';
 const USER_AGENT = 'Mozilla/5.0 (compatible; ffxi-crafting-pricer/0.1)';

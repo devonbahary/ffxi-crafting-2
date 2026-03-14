@@ -13,7 +13,7 @@ import {
     varchar,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { CRAFTS } from '@ffxi-crafting/types';
+import { CRAFTS } from './crafts.js';
 
 export const craftEnum = pgEnum('craft', CRAFTS);
 

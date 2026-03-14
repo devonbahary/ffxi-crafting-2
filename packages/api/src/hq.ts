@@ -1,4 +1,4 @@
-import type { Craft } from '@ffxi-crafting/types';
+import type { Craft } from '@ffxi-crafting/db';
 
 export type PlayerSkills = Partial<Record<Craft, number>>;
 

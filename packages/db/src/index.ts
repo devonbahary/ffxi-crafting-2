@@ -9,6 +9,7 @@ const client = postgres(
 export const db = drizzle(client, { schema });
 export const closeDb = () => client.end();
 export * from './schema.js';
+export * from './crafts.js';
 export * from './boss.js';
 export * from './upserts.js';
 export * from './queries.js';

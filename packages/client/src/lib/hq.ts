@@ -1,4 +1,4 @@
-import type { Craft, CraftRequirement } from '@ffxi-crafting/types';
+import type { Craft, CraftRequirement } from '@ffxi-crafting/api';
 
 type Tier = -1 | 0 | 1 | 2 | 3;
 

@@ -10,10 +10,7 @@
         "composite": true,
         "declaration": true,
         "declarationMap": true,
-        "skipLibCheck": true,
-        "paths": {
-            "@ffxi-crafting/types": ["../types/src/index.ts"]
-        }
+        "skipLibCheck": true
     },
     "include": ["src"],
     "references": [{ "path": "../types" }]

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { hc } from 'hono/client';
 import type { AppType, ItemDetail, SynthesisDetail } from '@ffxi-crafting/api';
@@ -217,9 +217,8 @@ const ItemsPage = () => {
                         </TableHeader>
                         <TableBody>
                             {data.items.map((item) => (
-                                <>
+                                <Fragment key={item.id}>
                                     <TableRow
-                                        key={item.id}
                                         className="cursor-pointer"
                                         onClick={() =>
                                             setExpandedItemId(
@@ -257,9 +256,9 @@ const ItemsPage = () => {
                                         </TableCell>
                                     </TableRow>
                                     {expandedItemId === item.id && (
-                                        <ItemExpandedRow key={`${item.id}-expanded`} item={item} />
+                                        <ItemExpandedRow item={item} />
                                     )}
-                                </>
+                                </Fragment>
                             ))}
                         </TableBody>
                     </Table>

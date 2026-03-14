@@ -1,8 +1,8 @@
 import { boss, closeDb, upsertItemStub, upsertSynthesis } from '@ffxi-crafting/db';
-import type { Craft } from '@ffxi-crafting/types';
-import type { EnrichJob } from '@ffxi-crafting/types';
-import { extractSyntheses } from './parsers/bg-wiki-craft-parser.js';
-import { logger } from './logger.js';
+import type { Craft } from '@ffxi-crafting/db';
+import type { EnrichJob } from '../shared/jobs.js';
+import { extractSyntheses } from './bg-wiki-craft-parser.js';
+import { logger } from '../shared/logger.js';
 
 logger.info('Starting discovery...');
 
@@ -18,7 +18,7 @@ const hrefToId = new Map<string, number>();
 
 const getOrUpsertItemId = async (href: string, name: string): Promise<number> => {
     if (!hrefToId.has(href)) {
-        logger.info(`Upserting item stub: ${name}`);
+        logger.debug(`Upserting item stub: ${name}`);
         const id = await upsertItemStub({ href, name });
         hrefToId.set(href, id);
 

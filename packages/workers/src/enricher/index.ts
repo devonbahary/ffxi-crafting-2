@@ -1,7 +1,7 @@
 import { boss, closeDb, upsertItem, upsertVendorPrice } from '@ffxi-crafting/db';
-import type { EnrichJob } from '@ffxi-crafting/types';
+import type { EnrichJob } from '../shared/jobs.js';
 import { extractItem } from './parsers/bg-wiki-item-parser.js';
-import { logger } from './logger.js';
+import { logger } from '../shared/logger.js';
 
 logger.info('Starting enricher...');
 

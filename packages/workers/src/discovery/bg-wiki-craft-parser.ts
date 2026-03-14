@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Cheerio, load, type CheerioAPI } from 'cheerio';
 import type { Element } from 'domhandler';
 import type { Tier } from '@ffxi-crafting/db';
+import { logger } from '../shared/logger.js';
 
 const BASE_URL = 'https://bg-wiki.com/ffxi';
 
@@ -137,13 +138,13 @@ const parseSynthesisRow = ($: CheerioAPI, row: Element): Synthesis | null => {
 
     const yields = parseYields($, tds);
     if (yields.length === 0) {
-        console.warn(`Could not determine yields for synthesis row ${row}`);
+        logger.warn(`Could not determine yields for synthesis row ${row}`);
         return null;
     }
 
     const craftRequirements = parseCraftRequirements($, tds);
     if (!craftRequirements) {
-        console.warn(`Could not determine craft requirements for synthesis row ${$(row).text()}`);
+        logger.warn(`Could not determine craft requirements for synthesis row ${$(row).text()}`);
         return null;
     }
 
@@ -152,7 +153,7 @@ const parseSynthesisRow = ($: CheerioAPI, row: Element): Synthesis | null => {
     const ingredients = parseIngredients($, tds);
 
     if (ingredients.length === 0) {
-        console.warn(`Could not determine ingredients for synthesis row ${row}`);
+        logger.warn(`Could not determine ingredients for synthesis row ${row}`);
         return null;
     }
 
@@ -172,7 +173,7 @@ const getCraftRankTables = ($: CheerioAPI): Cheerio<Element>[] => {
         const rankMatch = headingText.match(RANK_PATTERN);
         if (!rankMatch) return;
 
-        console.log(`   Found rank heading: ${rankMatch[0]}`);
+        logger.info(`   Found rank heading: ${rankMatch[0]}`);
         rankTables.push($(h2).next('table'));
     });
 
@@ -183,7 +184,7 @@ export const extractSyntheses = async (): Promise<Synthesis[]> => {
     const syntheses: Synthesis[] = [];
 
     for (const craft of CRAFTS) {
-        console.log(` Extracting ${craft} syntheses...`);
+        logger.info(` Extracting ${craft} syntheses...`);
 
         const bgWikiCraftPage = await fetchHtml(`${BASE_URL}/${craft}`);
         const $ = load(bgWikiCraftPage);

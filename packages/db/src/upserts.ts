@@ -13,7 +13,7 @@ import {
     synthesisProfitIngredients,
     synthesisProfitYieldTiers,
 } from './schema.js';
-import type { CraftRequirement } from '@ffxi-crafting/types';
+import type { CraftRequirement } from './crafts.js';
 
 export type Tier = (typeof tierEnum.enumValues)[number];
 

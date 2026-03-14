@@ -13,7 +13,7 @@ import {
     itemAuctionPrices,
     itemVendorPrices,
 } from '@ffxi-crafting/db';
-import type { Craft, CraftRequirement } from '@ffxi-crafting/types';
+import type { Craft, CraftRequirement } from '@ffxi-crafting/db';
 
 const CRYSTAL_NAMES = new Set([
     'Fire Crystal',

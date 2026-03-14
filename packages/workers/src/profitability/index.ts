@@ -6,9 +6,9 @@ import {
     getSynthesisProfitabilityData,
     upsertSynthesisProfit,
 } from '@ffxi-crafting/db';
-import type { ProfitJob } from '@ffxi-crafting/types';
+import type { ProfitJob } from '../shared/jobs.js';
 import { calculateProfit } from './calculator.js';
-import { logger } from './logger.js';
+import { logger } from '../shared/logger.js';
 
 logger.info('Starting profitability worker...');
 

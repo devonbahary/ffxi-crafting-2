@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { hc } from 'hono/client';
 import type { AppType, ProfitableSynthesis } from '@ffxi-crafting/api';
-import { CRAFTS } from '@ffxi-crafting/types';
+import { CRAFTS } from '@ffxi-crafting/api';
 import {
     Tooltip,
     TooltipContent,

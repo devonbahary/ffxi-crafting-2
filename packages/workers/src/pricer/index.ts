@@ -5,9 +5,9 @@ import {
     getAuctionableItems,
     insertAuctionPrice,
 } from '@ffxi-crafting/db';
-import type { PriceJob, ProfitJob } from '@ffxi-crafting/types';
-import { fetchItemPrices } from './parsers/ffxiah-price-parser.js';
-import { logger } from './logger.js';
+import type { PriceJob, ProfitJob } from '../shared/jobs.js';
+import { fetchItemPrices } from './ffxiah-price-parser.js';
+import { logger } from '../shared/logger.js';
 
 logger.info('Starting pricer...');
 
