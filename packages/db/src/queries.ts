@@ -77,6 +77,7 @@ export const getAuctionableSynthesisIds = async (itemId: number): Promise<number
 };
 
 type SynthesisProfitabilityData = {
+    pricesAsOf: Date;
     yields: {
         itemId: number;
         name: string;
@@ -150,6 +151,7 @@ export const getSynthesisProfitabilityData = async (
                 stackPrice: itemAuctionPrices.stackPrice,
                 salesPerDay: itemAuctionPrices.salesPerDay,
                 stackSalesPerDay: itemAuctionPrices.stackSalesPerDay,
+                createdAt: itemAuctionPrices.createdAt,
             })
             .from(itemAuctionPrices)
             .innerJoin(
@@ -178,7 +180,10 @@ export const getSynthesisProfitabilityData = async (
     );
     if (nqYieldsWithAuction.length === 0) return null;
 
+    const pricesAsOf = new Date(Math.min(...auctionPrices.map((p) => p.createdAt.getTime())));
+
     return {
+        pricesAsOf,
         yields: yieldRows.map((r) => {
             const pricing = priceByItemId.get(r.itemId);
             return {

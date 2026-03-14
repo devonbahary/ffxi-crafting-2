@@ -401,7 +401,8 @@ export type ProfitableSynthesis = {
     expectedUnitProfitAsStack: number | null;
     stackProfit: number | null;
     expectedStackProfit: number | null;
-    priceUpdatedAt: Date | null;
+    calculatedAt: Date | null;
+    pricesAsOf: Date | null;
     hqYields: HqYieldTier[];
     nqYield: {
         itemId: number;
@@ -458,7 +459,7 @@ export const getProfitableSyntheses = async ({
     const latestProfitSub = db
         .select({
             synthesisId: synthesisProfits.synthesisId,
-            maxAt: max(synthesisProfits.createdAt).as('max_profit_at'),
+            maxAt: max(synthesisProfits.calculatedAt).as('max_profit_at'),
         })
         .from(synthesisProfits)
         .groupBy(synthesisProfits.synthesisId)
@@ -466,7 +467,7 @@ export const getProfitableSyntheses = async ({
 
     const profitJoin = and(
         eq(synthesisProfits.synthesisId, latestProfitSub.synthesisId),
-        eq(synthesisProfits.createdAt, latestProfitSub.maxAt),
+        eq(synthesisProfits.calculatedAt, latestProfitSub.maxAt),
     );
 
     const rateFilter =
@@ -531,7 +532,8 @@ export const getProfitableSyntheses = async ({
             expectedStackProfitT1: number | null;
             expectedStackProfitT2: number | null;
             expectedStackProfitT3: number | null;
-            createdAt: Date;
+            calculatedAt: Date;
+            pricesAsOf: Date;
         },
         crafts: { mainCraft: CraftRequirement; subCrafts: CraftRequirement[] },
         crystalName: string,
@@ -596,7 +598,8 @@ export const getProfitableSyntheses = async ({
             expectedUnitProfitAsStack,
             stackProfit: profit.stackProfit,
             expectedStackProfit,
-            priceUpdatedAt: profit.createdAt,
+            calculatedAt: profit.calculatedAt,
+            pricesAsOf: profit.pricesAsOf,
             hqYields,
             nqYield: {
                 itemId: nqYieldRow.itemId,
@@ -668,7 +671,8 @@ export const getProfitableSyntheses = async ({
                 expectedStackProfitT1: synthesisProfits.expectedStackProfitT1,
                 expectedStackProfitT2: synthesisProfits.expectedStackProfitT2,
                 expectedStackProfitT3: synthesisProfits.expectedStackProfitT3,
-                createdAt: synthesisProfits.createdAt,
+                calculatedAt: synthesisProfits.calculatedAt,
+                pricesAsOf: synthesisProfits.pricesAsOf,
             })
             .from(synthesisProfits)
             .innerJoin(latestProfitSub, profitJoin)
@@ -879,7 +883,8 @@ export const getProfitableSyntheses = async ({
                 expectedStackProfitT1: synthesisProfits.expectedStackProfitT1,
                 expectedStackProfitT2: synthesisProfits.expectedStackProfitT2,
                 expectedStackProfitT3: synthesisProfits.expectedStackProfitT3,
-                createdAt: synthesisProfits.createdAt,
+                calculatedAt: synthesisProfits.calculatedAt,
+                pricesAsOf: synthesisProfits.pricesAsOf,
             })
             .from(synthesisProfits)
             .innerJoin(latestProfitSub, profitJoin)

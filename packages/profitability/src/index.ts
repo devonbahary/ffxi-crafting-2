@@ -26,7 +26,7 @@ const processSynthesis = async (synthesisId: number) => {
     logger.debug(
         `synthesisId=${synthesisId} unitProfitAsSingle=${result.unitProfitAsSingle} unitProfitAsStack=${result.unitProfitAsStack}`,
     );
-    await upsertSynthesisProfit({ synthesisId, ...result });
+    await upsertSynthesisProfit({ synthesisId, pricesAsOf: data.pricesAsOf, ...result });
 };
 
 await boss.work<ProfitJob>('synthesis-profit.update', { batchSize: 5 }, async (jobs) => {

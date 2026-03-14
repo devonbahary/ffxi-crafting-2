@@ -154,7 +154,8 @@ export const synthesisProfits = pgTable(
         synthesisId: integer('synthesis_id')
             .references(() => syntheses.id)
             .notNull(),
-        createdAt: timestamp('created_at').notNull().defaultNow(),
+        calculatedAt: timestamp('calculated_at').notNull().defaultNow(),
+        pricesAsOf: timestamp('prices_as_of').notNull(),
 
         // denormalized — prices copied from item_auction_prices at snapshot time
         salesPerDay: real('sales_per_day'),
@@ -180,7 +181,9 @@ export const synthesisProfits = pgTable(
         expectedStackProfitT2: integer('expected_stack_profit_t2'),
         expectedStackProfitT3: integer('expected_stack_profit_t3'),
     },
-    (t) => [index('synthesis_profits_synthesis_id_created_at_idx').on(t.synthesisId, t.createdAt)],
+    (t) => [
+        index('synthesis_profits_synthesis_id_calculated_at_idx').on(t.synthesisId, t.calculatedAt),
+    ],
 );
 
 export const synthesisProfitIngredients = pgTable(

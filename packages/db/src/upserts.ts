@@ -134,12 +134,14 @@ export const upsertSynthesisProfit = async ({
     expectedStackProfitT1,
     expectedStackProfitT2,
     expectedStackProfitT3,
+    pricesAsOf,
     salesPerDay,
     stackSalesPerDay,
     ingredientSnapshot,
     yieldTierSnapshot,
 }: {
     synthesisId: number;
+    pricesAsOf: Date;
     totalIngredientCost: number;
     unitProfitAsSingle: number;
     unitProfitAsStack: number | null;
@@ -191,12 +193,12 @@ export const upsertSynthesisProfit = async ({
             and(
                 eq(synthesisProfits.synthesisId, synthesisId),
                 gt(
-                    synthesisProfits.createdAt,
+                    synthesisProfits.calculatedAt,
                     sql`now() - interval '${sql.raw(String(PROFIT_WINDOW_HOURS))} hours'`,
                 ),
             ),
         )
-        .orderBy(desc(synthesisProfits.createdAt))
+        .orderBy(desc(synthesisProfits.calculatedAt))
         .limit(1)
         .then((r) => r[0]);
 
@@ -227,7 +229,7 @@ export const upsertSynthesisProfit = async ({
         if (recent) {
             await tx
                 .update(synthesisProfits)
-                .set({ salesPerDay, stackSalesPerDay, ...capped })
+                .set({ pricesAsOf, salesPerDay, stackSalesPerDay, ...capped })
                 .where(eq(synthesisProfits.id, recent.id));
             snapshotId = recent.id;
             await tx
@@ -239,7 +241,7 @@ export const upsertSynthesisProfit = async ({
         } else {
             const [inserted] = await tx
                 .insert(synthesisProfits)
-                .values({ synthesisId, salesPerDay, stackSalesPerDay, ...capped })
+                .values({ synthesisId, pricesAsOf, salesPerDay, stackSalesPerDay, ...capped })
                 .returning({ id: synthesisProfits.id });
             snapshotId = inserted.id;
         }

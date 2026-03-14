@@ -671,7 +671,8 @@ const SynthesisPage = () => {
                                         />
                                         <RateCell salesPerDay={s.stackSalesPerDay} />
                                         <TableCell className="text-right text-muted-foreground text-xs">
-                                            {formatUpdatedAt(s.priceUpdatedAt)}
+                                            {formatUpdatedAt(s.pricesAsOf)}
+                                            <div className="text-muted-foreground/60">calc {formatUpdatedAt(s.calculatedAt)}</div>
                                         </TableCell>
                                     </TableRow>
                                     {expandedId === s.id && <ExpandedRow synthesis={s} playerSkills={playerSkills} />}
