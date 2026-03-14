@@ -416,20 +416,31 @@ export type ProfitableSynthesis = {
     ingredients: IngredientCost[];
 };
 
+export const RATE_THRESHOLDS = {
+    'very-fast': 8,
+    fast: 4,
+    average: 1,
+    slow: 1 / 7,
+    'very-slow': 1 / 30,
+} as const;
+
+export type RateFilter = keyof typeof RATE_THRESHOLDS;
+
 export const getProfitableSyntheses = async ({
     sortBy = 'single',
     page = 1,
     perPage = 25,
     skills,
     yieldName,
+    minRate,
 }: {
     sortBy?: 'single' | 'stack' | 'ah-slot' | 'daily' | 'stack-total';
     page?: number;
     perPage?: number;
     skills?: PlayerSkills;
     yieldName?: string;
+    minRate?: number;
 }): Promise<{ syntheses: ProfitableSynthesis[]; total: number }> => {
-    const AVERAGE_SALES_RATE = 1;
     const hasSkills = skills && Object.keys(skills).length > 0;
 
     // Pre-filter by NQ yield name if provided
@@ -458,15 +469,14 @@ export const getProfitableSyntheses = async ({
         eq(synthesisProfits.createdAt, latestProfitSub.maxAt),
     );
 
-    // Filter: only syntheses where the relevant sale mode meets Average sales rate.
-    // When searching by name the user is looking for a specific synthesis, so sales rate is not applied.
-    const eligibilityFilter = yieldName
-        ? undefined
-        : sortBy === 'single'
-          ? gte(synthesisProfits.salesPerDay, AVERAGE_SALES_RATE)
-          : sortBy === 'stack'
-            ? gte(synthesisProfits.stackSalesPerDay, AVERAGE_SALES_RATE)
-            : sql`(${synthesisProfits.salesPerDay} >= ${AVERAGE_SALES_RATE} OR ${synthesisProfits.stackSalesPerDay} >= ${AVERAGE_SALES_RATE})`;
+    const rateFilter =
+        minRate === undefined
+            ? undefined
+            : sortBy === 'single'
+              ? gte(synthesisProfits.salesPerDay, minRate)
+              : sortBy === 'stack' || sortBy === 'stack-total'
+                ? gte(synthesisProfits.stackSalesPerDay, minRate)
+                : sql`(${synthesisProfits.salesPerDay} >= ${minRate} OR ${synthesisProfits.stackSalesPerDay} >= ${minRate})`;
 
     // Shared helper: build craft requirements map from DB rows
     type CraftRow = {
@@ -662,7 +672,7 @@ export const getProfitableSyntheses = async ({
             })
             .from(synthesisProfits)
             .innerJoin(latestProfitSub, profitJoin)
-            .where(eligibilityFilter);
+            .where(rateFilter);
 
         const allProfitRows = nameFilteredIds
             ? rawProfitRows.filter((r) => nameFilteredIds!.has(r.synthesisId))
@@ -843,7 +853,7 @@ export const getProfitableSyntheses = async ({
     const nameIdFilter = nameFilteredIds
         ? inArray(synthesisProfits.synthesisId, [...nameFilteredIds])
         : undefined;
-    const noSkillsFilter = and(eligibilityFilter, nameIdFilter);
+    const noSkillsFilter = and(rateFilter, nameIdFilter);
 
     const [profitRows, [{ total }]] = await Promise.all([
         db

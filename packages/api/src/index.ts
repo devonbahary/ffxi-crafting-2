@@ -11,6 +11,7 @@ import {
     getSynthesesByYieldItemId,
     getProfitableSyntheses,
     searchItemsByName,
+    RATE_THRESHOLDS,
 } from './queries.js';
 export * from './queries.js';
 import { closeDb } from '@ffxi-crafting/db';
@@ -59,6 +60,7 @@ const app = new Hono()
                 page: z.coerce.number().int().positive().optional(),
                 perPage: z.coerce.number().int().positive().max(100).optional(),
                 yieldName: z.string().optional(),
+                minRate: z.enum(['very-fast', 'fast', 'average', 'slow', 'very-slow']).optional(),
                 alchemy: z.coerce.number().int().min(0).max(110).optional(),
                 bonecraft: z.coerce.number().int().min(0).max(110).optional(),
                 clothcraft: z.coerce.number().int().min(0).max(110).optional(),
@@ -75,6 +77,7 @@ const app = new Hono()
                 page,
                 perPage,
                 yieldName,
+                minRate,
                 alchemy,
                 bonecraft,
                 clothcraft,
@@ -99,6 +102,7 @@ const app = new Hono()
                 perPage,
                 yieldName: yieldName || undefined,
                 skills: Object.keys(skills).length > 0 ? skills : undefined,
+                minRate: minRate ? RATE_THRESHOLDS[minRate] : undefined,
             });
             return c.json(result);
         },

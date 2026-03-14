@@ -63,6 +63,15 @@ const RATE_THRESHOLDS: [number, string][] = [
     [1 / 30, 'Very Slow'],
 ];
 
+const RATE_FILTER_OPTIONS: { label: string; value: string }[] = [
+    { label: 'Any rate', value: 'any' },
+    { label: 'Very Fast', value: 'very-fast' },
+    { label: 'Fast', value: 'fast' },
+    { label: 'Average', value: 'average' },
+    { label: 'Slow', value: 'slow' },
+    { label: 'Very Slow', value: 'very-slow' },
+];
+
 const getSalesRateLabel = (salesPerDay: number | null): string => {
     const rate = salesPerDay ?? 0;
     for (const [threshold, label] of RATE_THRESHOLDS) {
@@ -366,6 +375,7 @@ const SynthesisPage = () => {
     const sortBy = (searchParams.get('sortBy') ?? 'single') as 'single' | 'stack' | 'ah-slot' | 'daily' | 'stack-total';
     const page = parseInt(searchParams.get('page') ?? '1', 10);
     const yieldName = searchParams.get('yieldName') ?? '';
+    const minRate = searchParams.get('minRate') ?? '';
 
     const [skillValues, setSkillValues] = useState<Partial<Record<string, number>>>(
         loadSkillsFromStorage,
@@ -413,6 +423,7 @@ const SynthesisPage = () => {
                         page: String(page),
                         perPage: String(PER_PAGE),
                         ...(yieldName ? { yieldName } : {}),
+                        ...(minRate ? { minRate: minRate as 'very-fast' | 'fast' | 'average' | 'slow' | 'very-slow' } : {}),
                         ...apiSkills,
                     },
                 });
@@ -425,7 +436,7 @@ const SynthesisPage = () => {
             }
         };
         load();
-    }, [sortBy, page, yieldName, apiSkillsKey]);
+    }, [sortBy, page, yieldName, minRate, apiSkillsKey]);
 
     const totalPages = data ? Math.ceil(data.total / PER_PAGE) : 1;
 
@@ -439,6 +450,16 @@ const SynthesisPage = () => {
             next.set('yieldName', value);
         } else {
             next.delete('yieldName');
+        }
+        next.set('page', '1');
+        setSearchParams(next);
+    };
+    const setMinRate = (value: string) => {
+        const next = new URLSearchParams(searchParams);
+        if (value && value !== 'any') {
+            next.set('minRate', value);
+        } else {
+            next.delete('minRate');
         }
         next.set('page', '1');
         setSearchParams(next);
@@ -479,6 +500,18 @@ const SynthesisPage = () => {
                     onChange={(e) => setYieldName(e.target.value)}
                     className="rounded-md border px-3 py-1.5 text-sm w-52"
                 />
+                <Select value={minRate || 'any'} onValueChange={setMinRate}>
+                    <SelectTrigger className="w-36">
+                        <SelectValue placeholder="Any rate" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {RATE_FILTER_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 <label className="flex items-center gap-2 text-sm">
                     <input
                         type="checkbox"
