@@ -55,7 +55,7 @@ const app = new Hono()
         zValidator(
             'query',
             z.object({
-                sortBy: z.enum(['single', 'stack', 'best', 'daily']).optional(),
+                sortBy: z.enum(['single', 'stack', 'ah-slot', 'daily', 'stack-total']).optional(),
                 page: z.coerce.number().int().positive().optional(),
                 perPage: z.coerce.number().int().positive().max(100).optional(),
                 yieldName: z.string().optional(),

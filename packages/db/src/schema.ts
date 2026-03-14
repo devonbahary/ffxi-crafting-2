@@ -174,6 +174,11 @@ export const synthesisProfits = pgTable(
         expectedUnitProfitAsStackT1: integer('expected_unit_profit_as_stack_t1'),
         expectedUnitProfitAsStackT2: integer('expected_unit_profit_as_stack_t2'),
         expectedUnitProfitAsStackT3: integer('expected_unit_profit_as_stack_t3'),
+        stackProfit: integer('stack_profit'),
+        expectedStackProfitT0: integer('expected_stack_profit_t0'),
+        expectedStackProfitT1: integer('expected_stack_profit_t1'),
+        expectedStackProfitT2: integer('expected_stack_profit_t2'),
+        expectedStackProfitT3: integer('expected_stack_profit_t3'),
     },
     (t) => [index('synthesis_profits_synthesis_id_created_at_idx').on(t.synthesisId, t.createdAt)],
 );

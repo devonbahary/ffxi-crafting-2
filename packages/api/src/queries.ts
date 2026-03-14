@@ -399,6 +399,8 @@ export type ProfitableSynthesis = {
     stackSalesPerDay: number | null;
     expectedUnitProfitAsSingle: number | null;
     expectedUnitProfitAsStack: number | null;
+    stackProfit: number | null;
+    expectedStackProfit: number | null;
     priceUpdatedAt: Date | null;
     hqYields: HqYieldTier[];
     nqYield: {
@@ -421,7 +423,7 @@ export const getProfitableSyntheses = async ({
     skills,
     yieldName,
 }: {
-    sortBy?: 'single' | 'stack' | 'best' | 'daily';
+    sortBy?: 'single' | 'stack' | 'ah-slot' | 'daily' | 'stack-total';
     page?: number;
     perPage?: number;
     skills?: PlayerSkills;
@@ -514,12 +516,18 @@ export const getProfitableSyntheses = async ({
             expectedUnitProfitAsStackT1: number | null;
             expectedUnitProfitAsStackT2: number | null;
             expectedUnitProfitAsStackT3: number | null;
+            stackProfit: number | null;
+            expectedStackProfitT0: number | null;
+            expectedStackProfitT1: number | null;
+            expectedStackProfitT2: number | null;
+            expectedStackProfitT3: number | null;
             createdAt: Date;
         },
         crafts: { mainCraft: CraftRequirement; subCrafts: CraftRequirement[] },
         crystalName: string,
         expectedUnitProfitAsSingle: number | null,
         expectedUnitProfitAsStack: number | null,
+        expectedStackProfit: number | null,
         snapshotIngredients: typeof allSnapshotIngredients,
         snapshotYieldTiers: typeof allSnapshotYieldTiers,
     ): ProfitableSynthesis | null => {
@@ -576,6 +584,8 @@ export const getProfitableSyntheses = async ({
             stackSalesPerDay: profit.stackSalesPerDay,
             expectedUnitProfitAsSingle,
             expectedUnitProfitAsStack,
+            stackProfit: profit.stackProfit,
+            expectedStackProfit,
             priceUpdatedAt: profit.createdAt,
             hqYields,
             nqYield: {
@@ -643,6 +653,11 @@ export const getProfitableSyntheses = async ({
                 expectedUnitProfitAsStackT1: synthesisProfits.expectedUnitProfitAsStackT1,
                 expectedUnitProfitAsStackT2: synthesisProfits.expectedUnitProfitAsStackT2,
                 expectedUnitProfitAsStackT3: synthesisProfits.expectedUnitProfitAsStackT3,
+                stackProfit: synthesisProfits.stackProfit,
+                expectedStackProfitT0: synthesisProfits.expectedStackProfitT0,
+                expectedStackProfitT1: synthesisProfits.expectedStackProfitT1,
+                expectedStackProfitT2: synthesisProfits.expectedStackProfitT2,
+                expectedStackProfitT3: synthesisProfits.expectedStackProfitT3,
                 createdAt: synthesisProfits.createdAt,
             })
             .from(synthesisProfits)
@@ -677,6 +692,7 @@ export const getProfitableSyntheses = async ({
             snapshotId: number;
             expectedUnitProfitAsSingle: number;
             expectedUnitProfitAsStack: number | null;
+            expectedStackProfit: number | null;
             sortValue: number;
         };
         const withExpected: WithExpected[] = [];
@@ -714,16 +730,34 @@ export const getProfitableSyntheses = async ({
                         : row.expectedUnitProfitAsStackT3;
             const expectedUnitProfitAsStack = stackT ?? null;
 
+            const stackProfitT =
+                tier === 0
+                    ? row.expectedStackProfitT0
+                    : tier === 1
+                      ? row.expectedStackProfitT1
+                      : tier === 2
+                        ? row.expectedStackProfitT2
+                        : row.expectedStackProfitT3;
+            const expectedStackProfit = stackProfitT ?? null;
+
             const sortValue =
                 sortBy === 'daily'
                     ? expectedUnitProfitAsSingle * (row.salesPerDay ?? 0)
-                    : expectedUnitProfitAsSingle;
+                    : sortBy === 'stack-total'
+                      ? (expectedStackProfit ?? 0)
+                      : sortBy === 'ah-slot'
+                        ? Math.max(
+                              expectedUnitProfitAsSingle,
+                              expectedUnitProfitAsStack ?? expectedUnitProfitAsSingle,
+                          )
+                        : expectedUnitProfitAsSingle;
 
             withExpected.push({
                 sid: row.synthesisId,
                 snapshotId: row.id,
                 expectedUnitProfitAsSingle,
                 expectedUnitProfitAsStack,
+                expectedStackProfit,
                 sortValue,
             });
         }
@@ -780,6 +814,7 @@ export const getProfitableSyntheses = async ({
                 crystalName,
                 expectedBySid.get(item.sid)?.expectedUnitProfitAsSingle ?? null,
                 expectedBySid.get(item.sid)?.expectedUnitProfitAsStack ?? null,
+                expectedBySid.get(item.sid)?.expectedStackProfit ?? null,
                 allSnapshotIngredients,
                 allSnapshotYieldTiers,
             );
@@ -795,13 +830,15 @@ export const getProfitableSyntheses = async ({
             ? desc(synthesisProfits.unitProfitAsSingle)
             : sortBy === 'stack'
               ? desc(synthesisProfits.unitProfitAsStack)
-              : sortBy === 'daily'
-                ? desc(
-                      sql`GREATEST(${synthesisProfits.profitPerDayAsSingle}, COALESCE(${synthesisProfits.profitPerDayAsStack}, ${synthesisProfits.profitPerDayAsSingle}))`,
-                  )
-                : desc(
-                      sql`GREATEST(${synthesisProfits.unitProfitAsSingle}, COALESCE(${synthesisProfits.unitProfitAsStack}, ${synthesisProfits.unitProfitAsSingle}))`,
-                  );
+              : sortBy === 'stack-total'
+                ? sql`${synthesisProfits.stackProfit} DESC NULLS LAST`
+                : sortBy === 'daily'
+                  ? desc(
+                        sql`GREATEST(${synthesisProfits.profitPerDayAsSingle}, COALESCE(${synthesisProfits.profitPerDayAsStack}, ${synthesisProfits.profitPerDayAsSingle}))`,
+                    )
+                  : desc(
+                        sql`GREATEST(${synthesisProfits.unitProfitAsSingle}, COALESCE(${synthesisProfits.unitProfitAsStack}, ${synthesisProfits.unitProfitAsSingle}))`,
+                    );
 
     const nameIdFilter = nameFilteredIds
         ? inArray(synthesisProfits.synthesisId, [...nameFilteredIds])
@@ -827,6 +864,11 @@ export const getProfitableSyntheses = async ({
                 expectedUnitProfitAsStackT1: synthesisProfits.expectedUnitProfitAsStackT1,
                 expectedUnitProfitAsStackT2: synthesisProfits.expectedUnitProfitAsStackT2,
                 expectedUnitProfitAsStackT3: synthesisProfits.expectedUnitProfitAsStackT3,
+                stackProfit: synthesisProfits.stackProfit,
+                expectedStackProfitT0: synthesisProfits.expectedStackProfitT0,
+                expectedStackProfitT1: synthesisProfits.expectedStackProfitT1,
+                expectedStackProfitT2: synthesisProfits.expectedStackProfitT2,
+                expectedStackProfitT3: synthesisProfits.expectedStackProfitT3,
                 createdAt: synthesisProfits.createdAt,
             })
             .from(synthesisProfits)
@@ -903,6 +945,7 @@ export const getProfitableSyntheses = async ({
             profit,
             crafts,
             crystalName,
+            null,
             null,
             null,
             allSnapshotIngredients,

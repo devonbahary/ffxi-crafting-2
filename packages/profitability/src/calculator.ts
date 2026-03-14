@@ -70,6 +70,11 @@ export type ProfitResult = {
     expectedUnitProfitAsStackT1: number | null;
     expectedUnitProfitAsStackT2: number | null;
     expectedUnitProfitAsStackT3: number | null;
+    stackProfit: number | null;
+    expectedStackProfitT0: number | null;
+    expectedStackProfitT1: number | null;
+    expectedStackProfitT2: number | null;
+    expectedStackProfitT3: number | null;
     salesPerDay: number;
     stackSalesPerDay: number | null;
     ingredientSnapshot: IngredientSnapshot[];
@@ -217,6 +222,15 @@ export const calculateProfit = (
         ? Math.round((nqStackRevenue - totalIngredientCost) / nqQuantity)
         : null;
 
+    // Sales metrics from first NQ yield item with auction data
+    const nqYieldWithAuction = nqYields.find((y) => y.auctionPrice !== null);
+    const salesPerDay = nqYieldWithAuction?.salesPerDay ?? 0;
+    const stackSalesPerDay = nqYieldWithAuction?.stackSalesPerDay ?? null;
+    // stackSalesPerDay is stack transactions/day; multiply by stackSize to get items/day
+    const nqStackSize = nqYieldWithAuction?.stackSize ?? 1;
+
+    const stackProfit = hasNqStack ? Math.round(unitProfitAsStack! * nqStackSize) : null;
+
     // When a synthesis has no yield defined for a given HQ tier, an HQ result at that
     // tier still occurs — it just produces the next-lower defined tier's item. Fall back
     // cascading so that missing tiers don't contribute zero revenue to the expected value.
@@ -226,6 +240,20 @@ export const calculateProfit = (
     const effHq1Revenue = hasHq1 ? hq1Revenue : nqRevenue;
     const effHq2Revenue = hasHq2 ? hq2Revenue : effHq1Revenue;
     const effHq3Revenue = hasHq3 ? hq3Revenue : effHq2Revenue;
+
+    // HQ quantities with same cascade fallback as revenues (for expectedStackProfit)
+    const hq1TotalQuantity = yields
+        .filter((y) => y.tier === 'HQ1')
+        .reduce((sum, y) => sum + y.quantity, 0);
+    const hq2TotalQuantity = yields
+        .filter((y) => y.tier === 'HQ2')
+        .reduce((sum, y) => sum + y.quantity, 0);
+    const hq3TotalQuantity = yields
+        .filter((y) => y.tier === 'HQ3')
+        .reduce((sum, y) => sum + y.quantity, 0);
+    const effHq1Quantity = hasHq1 ? hq1TotalQuantity : nqQuantity;
+    const effHq2Quantity = hasHq2 ? hq2TotalQuantity : effHq1Quantity;
+    const effHq3Quantity = hasHq3 ? hq3TotalQuantity : effHq2Quantity;
 
     // Expected margin per item (normalized by nqQuantity)
     const revenues = { nq: nqRevenue, hq1: effHq1Revenue, hq2: effHq2Revenue, hq3: effHq3Revenue };
@@ -263,6 +291,10 @@ export const calculateProfit = (
     let expectedUnitProfitAsStackT1: number | null = null;
     let expectedUnitProfitAsStackT2: number | null = null;
     let expectedUnitProfitAsStackT3: number | null = null;
+    let expectedStackProfitT0: number | null = null;
+    let expectedStackProfitT1: number | null = null;
+    let expectedStackProfitT2: number | null = null;
+    let expectedStackProfitT3: number | null = null;
     if (hasNqStack) {
         const hq1StackRevenue = yieldTierSnapshot
             .filter((y) => y.tier === 'HQ1')
@@ -310,14 +342,33 @@ export const calculateProfit = (
             totalIngredientCost,
             nqQuantity,
         );
-    }
 
-    // Sales metrics from first NQ yield item with auction data
-    const nqYieldWithAuction = nqYields.find((y) => y.auctionPrice !== null);
-    const salesPerDay = nqYieldWithAuction?.salesPerDay ?? 0;
-    const stackSalesPerDay = nqYieldWithAuction?.stackSalesPerDay ?? null;
-    // stackSalesPerDay is stack transactions/day; multiply by stackSize to get items/day
-    const nqStackSize = nqYieldWithAuction?.stackSize ?? 1;
+        const calcExpectedItemsPerSynth = (
+            hqRate: number,
+            dist: { HQ1: number; HQ2: number; HQ3: number },
+        ) =>
+            (1 - hqRate) * nqQuantity +
+            hqRate *
+                (dist.HQ1 * effHq1Quantity + dist.HQ2 * effHq2Quantity + dist.HQ3 * effHq3Quantity);
+
+        const stackPricePerUnit = nqStackRevenue / nqQuantity;
+        const calcStackProfit = (expectedItems: number) =>
+            Math.round(
+                stackPricePerUnit * nqStackSize -
+                    (totalIngredientCost * nqStackSize) / expectedItems,
+            );
+
+        expectedStackProfitT0 = calcStackProfit(calcExpectedItemsPerSynth(HQ_RATES[0], HQ_DIST_T0));
+        expectedStackProfitT1 = calcStackProfit(
+            calcExpectedItemsPerSynth(HQ_RATES[1], HQ_DIST_T1_PLUS),
+        );
+        expectedStackProfitT2 = calcStackProfit(
+            calcExpectedItemsPerSynth(HQ_RATES[2], HQ_DIST_T1_PLUS),
+        );
+        expectedStackProfitT3 = calcStackProfit(
+            calcExpectedItemsPerSynth(HQ_RATES[3], HQ_DIST_T1_PLUS),
+        );
+    }
 
     const profitPerDayAsSingle =
         salesPerDay > 0 ? Math.round(unitProfitAsSingle * salesPerDay) : null;
@@ -340,6 +391,11 @@ export const calculateProfit = (
         expectedUnitProfitAsStackT1,
         expectedUnitProfitAsStackT2,
         expectedUnitProfitAsStackT3,
+        stackProfit,
+        expectedStackProfitT0,
+        expectedStackProfitT1,
+        expectedStackProfitT2,
+        expectedStackProfitT3,
         salesPerDay,
         stackSalesPerDay,
         ingredientSnapshot,

@@ -138,7 +138,7 @@ const ExpandedRow = ({
 
     return (
         <TableRow className="bg-muted/40 hover:bg-muted/40">
-            <TableCell colSpan={10} className="p-4 space-y-4">
+            <TableCell colSpan={11} className="p-4 space-y-4">
                 <div>
                     <p className="text-sm font-semibold mb-2">Sale prices</p>
                     <table className="text-sm">
@@ -363,7 +363,7 @@ const loadSkillsFromStorage = (): Partial<Record<string, number>> => {
 
 const SynthesisPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const sortBy = (searchParams.get('sortBy') ?? 'single') as 'single' | 'stack' | 'best' | 'daily';
+    const sortBy = (searchParams.get('sortBy') ?? 'single') as 'single' | 'stack' | 'ah-slot' | 'daily' | 'stack-total';
     const page = parseInt(searchParams.get('page') ?? '1', 10);
     const yieldName = searchParams.get('yieldName') ?? '';
 
@@ -429,7 +429,7 @@ const SynthesisPage = () => {
 
     const totalPages = data ? Math.ceil(data.total / PER_PAGE) : 1;
 
-    const setSort = (value: 'single' | 'stack' | 'best' | 'daily') =>
+    const setSort = (value: 'single' | 'stack' | 'ah-slot' | 'daily' | 'stack-total') =>
         setSearchParams({ ...Object.fromEntries(searchParams), sortBy: value, page: '1' });
     const setPage = (p: number) =>
         setSearchParams({ ...Object.fromEntries(searchParams), page: String(p) });
@@ -460,14 +460,15 @@ const SynthesisPage = () => {
             <h1 className="mb-6 text-2xl font-bold">Profitable Syntheses</h1>
 
             <div className="mb-4 flex items-center gap-4">
-                <Select value={sortBy} onValueChange={(v) => setSort(v as 'single' | 'stack' | 'best')}>
+                <Select value={sortBy} onValueChange={(v) => setSort(v as 'single' | 'stack' | 'ah-slot' | 'daily' | 'stack-total')}>
                     <SelectTrigger className="w-48">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="single">By Unit Profit (Single)</SelectItem>
                         <SelectItem value="stack">By Unit Profit (Stack)</SelectItem>
-                        <SelectItem value="best">Best of Either</SelectItem>
+                        <SelectItem value="stack-total">By Stack Profit</SelectItem>
+                        <SelectItem value="ah-slot">By Most Profitable AH Slot</SelectItem>
                         <SelectItem value="daily">By Daily Profit</SelectItem>
                     </SelectContent>
                 </Select>
@@ -531,9 +532,10 @@ const SynthesisPage = () => {
                                 <TableHead className="text-right">AH Price</TableHead>
                                 <TableHead className="text-right">AH Stack</TableHead>
                                 <TableHead className="text-right">Unit Profit (Single)</TableHead>
-                                <TableHead className="text-right">Rate</TableHead>
+                                <TableHead className="text-right">Single Rate</TableHead>
                                 <TableHead className="text-right">Unit Profit (Stack)</TableHead>
-                                <TableHead className="text-right">Rate</TableHead>
+                                <TableHead className="text-right">Stack Profit</TableHead>
+                                <TableHead className="text-right">Stack Rate</TableHead>
                                 <TableHead className="text-right">Updated</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -630,6 +632,9 @@ const SynthesisPage = () => {
                                         <RateCell salesPerDay={s.salesPerDay} />
                                         <ProfitCell
                                             value={hasSkills ? s.expectedUnitProfitAsStack : s.unitProfitAsStack}
+                                        />
+                                        <ProfitCell
+                                            value={hasSkills ? s.expectedStackProfit : s.stackProfit}
                                         />
                                         <RateCell salesPerDay={s.stackSalesPerDay} />
                                         <TableCell className="text-right text-muted-foreground text-xs">

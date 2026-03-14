@@ -129,6 +129,11 @@ export const upsertSynthesisProfit = async ({
     expectedUnitProfitAsStackT1,
     expectedUnitProfitAsStackT2,
     expectedUnitProfitAsStackT3,
+    stackProfit,
+    expectedStackProfitT0,
+    expectedStackProfitT1,
+    expectedStackProfitT2,
+    expectedStackProfitT3,
     salesPerDay,
     stackSalesPerDay,
     ingredientSnapshot,
@@ -148,6 +153,11 @@ export const upsertSynthesisProfit = async ({
     expectedUnitProfitAsStackT1: number | null;
     expectedUnitProfitAsStackT2: number | null;
     expectedUnitProfitAsStackT3: number | null;
+    stackProfit: number | null;
+    expectedStackProfitT0: number | null;
+    expectedStackProfitT1: number | null;
+    expectedStackProfitT2: number | null;
+    expectedStackProfitT3: number | null;
     salesPerDay: number;
     stackSalesPerDay: number | null;
     ingredientSnapshot: {
@@ -204,6 +214,11 @@ export const upsertSynthesisProfit = async ({
         expectedUnitProfitAsStackT1: capIntN(expectedUnitProfitAsStackT1),
         expectedUnitProfitAsStackT2: capIntN(expectedUnitProfitAsStackT2),
         expectedUnitProfitAsStackT3: capIntN(expectedUnitProfitAsStackT3),
+        stackProfit: capIntN(stackProfit),
+        expectedStackProfitT0: capIntN(expectedStackProfitT0),
+        expectedStackProfitT1: capIntN(expectedStackProfitT1),
+        expectedStackProfitT2: capIntN(expectedStackProfitT2),
+        expectedStackProfitT3: capIntN(expectedStackProfitT3),
     };
 
     await db.transaction(async (tx) => {
