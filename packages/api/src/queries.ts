@@ -762,7 +762,7 @@ export const getProfitableSyntheses = async ({
                       : sortBy === 'ah-slot'
                         ? Math.max(
                               expectedUnitProfitAsSingle,
-                              expectedUnitProfitAsStack ?? expectedUnitProfitAsSingle,
+                              expectedStackProfit ?? expectedUnitProfitAsSingle,
                           )
                         : expectedUnitProfitAsSingle;
 
@@ -850,9 +850,7 @@ export const getProfitableSyntheses = async ({
                   ? desc(
                         sql`GREATEST(${synthesisProfits.profitPerDayAsSingle}, COALESCE(${synthesisProfits.profitPerDayAsStack}, ${synthesisProfits.profitPerDayAsSingle}))`,
                     )
-                  : desc(
-                        sql`GREATEST(${synthesisProfits.unitProfitAsSingle}, COALESCE(${synthesisProfits.unitProfitAsStack}, ${synthesisProfits.unitProfitAsSingle}))`,
-                    );
+                  : sql`GREATEST(${synthesisProfits.unitProfitAsSingle}, COALESCE(${synthesisProfits.stackProfit}, ${synthesisProfits.unitProfitAsSingle})) DESC NULLS LAST`;
 
     const nameIdFilter = nameFilteredIds
         ? inArray(synthesisProfits.synthesisId, [...nameFilteredIds])

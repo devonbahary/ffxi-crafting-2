@@ -147,202 +147,204 @@ const ExpandedRow = ({
 
     return (
         <TableRow className="bg-muted/40 hover:bg-muted/40">
-            <TableCell colSpan={11} className="p-4 space-y-4">
-                <div>
-                    <p className="text-sm font-semibold mb-2">Sale prices</p>
-                    <table className="text-sm">
-                        <thead>
-                            <tr className="text-muted-foreground">
-                                <th className="text-left pr-4 font-normal">Tier</th>
-                                <th className="text-left pr-8 font-normal">Item</th>
-                                <th className="text-right pr-4 font-normal">Qty</th>
-                                <th className="text-right pr-4 font-normal">Stack</th>
-                                <th className="text-right pr-4 font-normal">AH Single</th>
-                                <th className="text-right pr-4 font-normal">AH Stack/unit</th>
-                                <th className="text-right pr-4 font-normal">Revenue</th>
-                                <th className="w-16 text-right pr-6 font-normal">Δ%</th>
-                                {showChance && <th className="text-right pr-4 font-normal">Chance</th>}
-                                <th className="text-right pr-4 font-normal">Unit Profit (Single)</th>
-                                <th className="text-right font-normal">Unit Profit (Stack)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td className="pr-4"><TierBadge tier="NQ" /></td>
-                                <td className="pr-8">{nqYield.name}</td>
-                                <td className="text-right pr-4">{nqYield.quantity}</td>
-                                <td className="text-right pr-4 text-muted-foreground">{nqYield.stackSize > 1 ? `×${nqYield.stackSize}` : '—'}</td>
-                                <td className={`text-right pr-4 ${nqYield.revenueSource === 'single' ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}>
-                                    {nqYield.auctionPrice !== null ? formatGil(nqYield.auctionPrice) : '—'}
-                                </td>
-                                <td className={`text-right pr-4 ${nqYield.revenueSource === 'stack' ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}>
-                                    {nqYield.auctionStackPrice !== null ? formatGil(Math.round(nqYield.auctionStackPrice / nqYield.stackSize)) : '—'}
-                                </td>
-                                <td className="text-right pr-4">{formatGil(nqYield.revenue)}</td>
-                                <td className="w-16 pr-6" />
-                                {showChance && <td className="text-right pr-4 text-muted-foreground">{formatChance(probs.NQ)}</td>}
-                                {(() => {
-                                    const qty = nqYield.quantity;
-                                    const singleRev = nqYield.auctionPrice !== null ? nqYield.auctionPrice * qty : null;
-                                    const stackRev = nqYield.auctionStackPrice !== null ? Math.round(nqYield.auctionStackPrice / nqYield.stackSize) * qty : null;
-                                    const marginSingle = singleRev !== null ? Math.round((singleRev - totalCost) / qty) : null;
-                                    const marginStack = stackRev !== null ? Math.round((stackRev - totalCost) / qty) : null;
-                                    return (
-                                        <>
-                                            <td className={`text-right pr-4 font-medium ${marginSingle !== null ? (marginSingle >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
-                                                {marginSingle !== null ? formatGil(marginSingle) : '—'}
-                                            </td>
-                                            <td className={`text-right font-medium ${marginStack !== null ? (marginStack >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
-                                                {marginStack !== null ? formatGil(marginStack) : '—'}
-                                            </td>
-                                        </>
-                                    );
-                                })()}
-                            </tr>
-                            {synthesis.hqYields.map((tier) =>
-                                tier.items.map((item, itemIdx) => {
-                                    const pct = itemIdx === 0 ? pctByTier.get(tier.tier) : undefined;
-                                    const revenue = item.revenue > 0 ? item.revenue : null;
-                                    const tierQty = tier.items.reduce((sum, it) => sum + it.quantity, 0);
-                                    const tierSingleRev = itemIdx === 0 ? tier.items.reduce((sum, it) => sum + (it.auctionPrice !== null ? it.auctionPrice * it.quantity : 0), 0) : null;
-                                    const tierStackRev = itemIdx === 0 ? tier.items.reduce((sum, it) => sum + (it.auctionStackPrice !== null ? Math.round(it.auctionStackPrice / it.stackSize) * it.quantity : 0), 0) : null;
-                                    const marginSingle = tierSingleRev !== null ? Math.round((tierSingleRev - totalCost) / tierQty) : null;
-                                    const marginStack = tierStackRev !== null && tier.items.some((it) => it.auctionStackPrice !== null) ? Math.round((tierStackRev - totalCost) / tierQty) : null;
-                                    return (
-                                        <tr key={`${tier.tier}-${item.itemId}`}>
-                                            <td className="pr-4"><TierBadge tier={tier.tier} /></td>
-                                            <td className="pr-8">{item.name}</td>
-                                            <td className="text-right pr-4">{item.quantity}</td>
-                                            <td className="text-right pr-4 text-muted-foreground">{item.stackSize > 1 ? `×${item.stackSize}` : '—'}</td>
-                                            <td className={`text-right pr-4 ${item.revenueSource === 'single' ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}>
-                                                {item.auctionPrice !== null ? formatGil(item.auctionPrice) : '—'}
-                                            </td>
-                                            <td className={`text-right pr-4 ${item.revenueSource === 'stack' ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}>
-                                                {item.auctionStackPrice !== null ? formatGil(Math.round(item.auctionStackPrice / item.stackSize)) : '—'}
-                                            </td>
-                                            <td className="text-right pr-4">{revenue !== null ? formatGil(revenue) : '—'}</td>
-                                            <td className={`w-16 pr-6 text-right text-xs ${pct !== undefined && pct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                {pct !== undefined ? `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%` : ''}
-                                            </td>
-                                            {showChance && (
-                                                <td className="text-right pr-4 text-muted-foreground">
-                                                    {itemIdx === 0 ? formatChance(probs[tier.tier]) : ''}
-                                                </td>
-                                            )}
-                                            <td className={`text-right pr-4 font-medium ${marginSingle !== null ? (marginSingle >= 0 ? 'text-green-500' : 'text-red-500') : ''}`}>
-                                                {itemIdx === 0 && marginSingle !== null ? formatGil(marginSingle) : ''}
-                                            </td>
-                                            <td className={`text-right font-medium ${marginStack !== null ? (marginStack >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
-                                                {itemIdx === 0 ? (marginStack !== null ? formatGil(marginStack) : '—') : ''}
-                                            </td>
-                                        </tr>
-                                    );
-                                }),
-                            )}
-                        </tbody>
-                    </table>
-                    {showChance && (() => {
-                        const tierContribs: { label: string; revenue: number; prob: number }[] = [
-                            { label: 'NQ', revenue: nqRevenue, prob: probs.NQ },
-                            ...synthesis.hqYields.map((tier, i) => ({
-                                label: tier.tier,
-                                revenue: tierRevenueSeq[i + 1],
-                                prob: probs[tier.tier],
-                            })),
-                        ];
-                        const expectedRevenue = tierContribs.reduce((sum, t) => sum + t.revenue * t.prob, 0);
-                        const expectedProfit = Math.round(expectedRevenue - totalCost);
-                        return (
-                            <div className="mt-3 text-sm">
-                                <p className="text-muted-foreground font-medium mb-1">Expected Profit</p>
-                                <table className="text-xs text-muted-foreground">
-                                    <tbody>
-                                        {tierContribs.map((t) => (
-                                            <tr key={t.label}>
-                                                <td className="pr-3"><TierBadge tier={t.label} /></td>
-                                                <td className="pr-2 text-right">{formatGil(Math.round(t.revenue))}</td>
-                                                <td className="pr-2">×</td>
-                                                <td className="pr-3 w-12">{formatChance(t.prob)}</td>
-                                                <td className="pr-2">=</td>
-                                                <td className="text-right">{formatGil(Math.round(t.revenue * t.prob))}</td>
-                                            </tr>
-                                        ))}
-                                        <tr className="border-t">
-                                            <td colSpan={5} className="pr-2 pt-1">Expected revenue</td>
-                                            <td className="text-right pt-1">{formatGil(Math.round(expectedRevenue))}</td>
-                                        </tr>
-                                        <tr>
-                                            <td colSpan={5} className="pr-2">− Cost</td>
-                                            <td className="text-right">{formatGil(totalCost)}</td>
-                                        </tr>
-                                        <tr className="border-t">
-                                            <td colSpan={5} className="pr-2 pt-1 font-medium text-foreground">Profit</td>
-                                            <td className={`text-right pt-1 font-medium ${expectedProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                                {formatGil(expectedProfit)}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        );
-                    })()}
-                </div>
-
-                <div>
-                    <p className="text-sm font-semibold mb-2">Ingredients</p>
-                    <table className="text-sm">
-                        <thead>
-                            <tr className="text-muted-foreground">
-                                <th className="text-left pr-8 font-normal">Item</th>
-                                <th className="text-right pr-4 font-normal">Qty</th>
-                                <th className="text-right pr-4 font-normal">Stack</th>
-                                <th className="text-right pr-4 font-normal">AH Single</th>
-                                <th className="text-right pr-4 font-normal">AH Stack/unit</th>
-                                <th className="text-right pr-4 font-normal">Vendor</th>
-                                <th className="text-right font-normal">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {synthesis.ingredients.map((ing) => (
-                                <tr key={ing.itemId}>
-                                    <td className="pr-8">{ing.name}</td>
-                                    <td className="text-right pr-4">{ing.quantity}</td>
-                                    <td className="text-right pr-4 text-muted-foreground">{ing.stackSize > 1 ? `×${ing.stackSize}` : '—'}</td>
-                                    <PriceCell
-                                        value={ing.auctionSinglePerUnit}
-                                        isCheapest={ing.priceSource === 'ah_single'}
-                                    />
-                                    <PriceCell
-                                        value={ing.auctionStackPerUnit}
-                                        isCheapest={ing.priceSource === 'ah_stack'}
-                                    />
-                                    <PriceCell
-                                        value={ing.vendorPerUnit}
-                                        isCheapest={ing.priceSource === 'vendor'}
-                                    />
-                                    <td className="text-right font-medium">{formatGil(ing.totalCost)}</td>
-                                </tr>
-                            ))}
-                            <tr className="border-t text-muted-foreground">
-                                <td colSpan={6} className="pr-4 pt-1">Total cost</td>
-                                <td className="text-right pt-1">{formatGil(totalCost)}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                {synthesis.subCrafts.length > 0 && (
+            <TableCell colSpan={11} className="p-4">
+                <div className="space-y-4">
                     <div>
-                        <p className="text-sm font-semibold mb-2">Sub-crafts</p>
-                        <ul className="text-sm space-y-0.5">
-                            {synthesis.subCrafts.map((sc) => (
-                                <li key={sc.craft}>
-                                    {sc.craft} {sc.craftLevel}
-                                </li>
-                            ))}
-                        </ul>
+                        <div>
+                            <p className="text-sm font-semibold mb-2">Revenue (by HQ Tier)</p>
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="text-muted-foreground">
+                                        <th className="text-left pr-4 font-normal">Tier</th>
+                                        <th className="text-left pr-4 font-normal">Item</th>
+                                        <th className="text-right pr-4 font-normal">Qty</th>
+                                        <th className="text-right pr-4 font-normal">Stack</th>
+                                        <th className="text-right pr-4 font-normal">AH Single</th>
+                                        <th className="text-right pr-4 font-normal">AH Stack/unit</th>
+                                        <th className="text-right pr-4 font-normal">Revenue</th>
+                                        <th className="text-right pr-4 font-normal">Δ%</th>
+                                        {showChance && <th className="text-right pr-4 font-normal">Chance</th>}
+                                        <th className="text-right pr-4 font-normal">Unit Profit (Single)</th>
+                                        <th className="text-right font-normal">Unit Profit (Stack)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td className="pr-4"><TierBadge tier="NQ" /></td>
+                                        <td className="pr-4">{nqYield.name}</td>
+                                        <td className="text-right pr-4">{nqYield.quantity}</td>
+                                        <td className="text-right pr-4 text-muted-foreground">{nqYield.stackSize > 1 ? `×${nqYield.stackSize}` : '—'}</td>
+                                        <td className={`text-right pr-4 ${nqYield.revenueSource === 'single' ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}>
+                                            {nqYield.auctionPrice !== null ? formatGil(nqYield.auctionPrice) : '—'}
+                                        </td>
+                                        <td className={`text-right pr-4 ${nqYield.revenueSource === 'stack' ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}>
+                                            {nqYield.auctionStackPrice !== null ? formatGil(Math.round(nqYield.auctionStackPrice / nqYield.stackSize)) : '—'}
+                                        </td>
+                                        <td className="text-right pr-4">{formatGil(nqYield.revenue)}</td>
+                                        <td className="pr-4 text-right text-xs text-muted-foreground">—</td>
+                                        {showChance && <td className="text-right pr-4 text-muted-foreground">{formatChance(probs.NQ)}</td>}
+                                        {(() => {
+                                            const qty = nqYield.quantity;
+                                            const singleRev = nqYield.auctionPrice !== null ? nqYield.auctionPrice * qty : null;
+                                            const stackRev = nqYield.auctionStackPrice !== null ? Math.round(nqYield.auctionStackPrice / nqYield.stackSize) * qty : null;
+                                            const marginSingle = singleRev !== null ? Math.round((singleRev - totalCost) / qty) : null;
+                                            const marginStack = stackRev !== null ? Math.round((stackRev - totalCost) / qty) : null;
+                                            return (
+                                                <>
+                                                    <td className={`text-right pr-4 font-medium ${marginSingle !== null ? (marginSingle >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
+                                                        {marginSingle !== null ? formatGil(marginSingle) : '—'}
+                                                    </td>
+                                                    <td className={`text-right font-medium ${marginStack !== null ? (marginStack >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
+                                                        {marginStack !== null ? formatGil(marginStack) : '—'}
+                                                    </td>
+                                                </>
+                                            );
+                                        })()}
+                                    </tr>
+                                    {synthesis.hqYields.map((tier) =>
+                                        tier.items.map((item, itemIdx) => {
+                                            const pct = itemIdx === 0 ? pctByTier.get(tier.tier) : undefined;
+                                            const revenue = item.revenue > 0 ? item.revenue : null;
+                                            const tierQty = tier.items.reduce((sum, it) => sum + it.quantity, 0);
+                                            const tierSingleRev = itemIdx === 0 ? tier.items.reduce((sum, it) => sum + (it.auctionPrice !== null ? it.auctionPrice * it.quantity : 0), 0) : null;
+                                            const tierStackRev = itemIdx === 0 ? tier.items.reduce((sum, it) => sum + (it.auctionStackPrice !== null ? Math.round(it.auctionStackPrice / it.stackSize) * it.quantity : 0), 0) : null;
+                                            const marginSingle = tierSingleRev !== null ? Math.round((tierSingleRev - totalCost) / tierQty) : null;
+                                            const marginStack = tierStackRev !== null && tier.items.some((it) => it.auctionStackPrice !== null) ? Math.round((tierStackRev - totalCost) / tierQty) : null;
+                                            return (
+                                                <tr key={`${tier.tier}-${item.itemId}`}>
+                                                    <td className="pr-4"><TierBadge tier={tier.tier} /></td>
+                                                    <td className="pr-4">{item.name}</td>
+                                                    <td className="text-right pr-4">{item.quantity}</td>
+                                                    <td className="text-right pr-4 text-muted-foreground">{item.stackSize > 1 ? `×${item.stackSize}` : '—'}</td>
+                                                    <td className={`text-right pr-4 ${item.revenueSource === 'single' ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}>
+                                                        {item.auctionPrice !== null ? formatGil(item.auctionPrice) : '—'}
+                                                    </td>
+                                                    <td className={`text-right pr-4 ${item.revenueSource === 'stack' ? 'text-green-500 font-medium' : 'text-muted-foreground'}`}>
+                                                        {item.auctionStackPrice !== null ? formatGil(Math.round(item.auctionStackPrice / item.stackSize)) : '—'}
+                                                    </td>
+                                                    <td className="text-right pr-4">{revenue !== null ? formatGil(revenue) : '—'}</td>
+                                                    <td className={`pr-4 text-right text-xs ${pct !== undefined && pct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                        {pct !== undefined ? `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%` : ''}
+                                                    </td>
+                                                    {showChance && (
+                                                        <td className="text-right pr-4 text-muted-foreground">
+                                                            {itemIdx === 0 ? formatChance(probs[tier.tier]) : ''}
+                                                        </td>
+                                                    )}
+                                                    <td className={`text-right pr-4 font-medium ${marginSingle !== null ? (marginSingle >= 0 ? 'text-green-500' : 'text-red-500') : ''}`}>
+                                                        {itemIdx === 0 && marginSingle !== null ? formatGil(marginSingle) : ''}
+                                                    </td>
+                                                    <td className={`text-right font-medium ${marginStack !== null ? (marginStack >= 0 ? 'text-green-500' : 'text-red-500') : 'text-muted-foreground'}`}>
+                                                        {itemIdx === 0 ? (marginStack !== null ? formatGil(marginStack) : '—') : ''}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        }),
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                )}
+                    <div>
+                        <p className="text-sm font-semibold mb-2">Cost (Ingredients)</p>
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-muted-foreground">
+                                    <th className="text-left pr-4 font-normal">Item</th>
+                                    <th className="text-right pr-4 font-normal">Qty</th>
+                                    <th className="text-right pr-4 font-normal">Stack</th>
+                                    <th className="text-right pr-4 font-normal">AH Single</th>
+                                    <th className="text-right pr-4 font-normal">AH Stack/unit</th>
+                                    <th className="text-right pr-4 font-normal">Vendor</th>
+                                    <th className="text-right font-normal">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {synthesis.ingredients.map((ing) => (
+                                    <tr key={ing.itemId}>
+                                        <td className="pr-4">{ing.name}</td>
+                                        <td className="text-right pr-4">{ing.quantity}</td>
+                                        <td className="text-right pr-4 text-muted-foreground">{ing.stackSize > 1 ? `×${ing.stackSize}` : '—'}</td>
+                                        <PriceCell
+                                            value={ing.auctionSinglePerUnit}
+                                            isCheapest={ing.priceSource === 'ah_single'}
+                                        />
+                                        <PriceCell
+                                            value={ing.auctionStackPerUnit}
+                                            isCheapest={ing.priceSource === 'ah_stack'}
+                                        />
+                                        <PriceCell
+                                            value={ing.vendorPerUnit}
+                                            isCheapest={ing.priceSource === 'vendor'}
+                                        />
+                                        <td className="text-right font-medium">{formatGil(ing.totalCost)}</td>
+                                    </tr>
+                                ))}
+                                <tr className="border-t text-muted-foreground">
+                                    <td colSpan={6} className="pr-4 pt-1">Total cost</td>
+                                    <td className="text-right pt-1">{formatGil(totalCost)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    {synthesis.subCrafts.length > 0 && (
+                        <div>
+                            <p className="text-sm font-semibold mb-2">Sub-crafts</p>
+                            <ul className="text-sm space-y-0.5">
+                                {synthesis.subCrafts.map((sc) => (
+                                    <li key={sc.craft}>
+                                        {sc.craft} {sc.craftLevel}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    {showChance && (() => {
+                            const tierContribs: { label: string; revenue: number; prob: number }[] = [
+                                { label: 'NQ', revenue: nqRevenue, prob: probs.NQ },
+                                ...synthesis.hqYields.map((tier, i) => ({
+                                    label: tier.tier,
+                                    revenue: tierRevenueSeq[i + 1],
+                                    prob: probs[tier.tier],
+                                })),
+                            ];
+                            const expectedRevenue = tierContribs.reduce((sum, t) => sum + t.revenue * t.prob, 0);
+                            const expectedProfit = Math.round(expectedRevenue - totalCost);
+                            return (
+                                <div className="text-sm">
+                                    <p className="text-muted-foreground font-medium mb-1">Expected Profit</p>
+                                    <table className="text-xs text-muted-foreground">
+                                        <tbody>
+                                            {tierContribs.map((t) => (
+                                                <tr key={t.label}>
+                                                    <td className="pr-3"><TierBadge tier={t.label} /></td>
+                                                    <td className="pr-2 text-right">{formatGil(Math.round(t.revenue))}</td>
+                                                    <td className="pr-2">×</td>
+                                                    <td className="pr-3 w-12">{formatChance(t.prob)}</td>
+                                                    <td className="pr-2">=</td>
+                                                    <td className="text-right">{formatGil(Math.round(t.revenue * t.prob))}</td>
+                                                </tr>
+                                            ))}
+                                            <tr className="border-t">
+                                                <td colSpan={5} className="pr-2 pt-1">Expected revenue</td>
+                                                <td className="text-right pt-1">{formatGil(Math.round(expectedRevenue))}</td>
+                                            </tr>
+                                            <tr>
+                                                <td colSpan={5} className="pr-2">− Cost</td>
+                                                <td className="text-right">{formatGil(totalCost)}</td>
+                                            </tr>
+                                            <tr className="border-t">
+                                                <td colSpan={5} className="pr-2 pt-1 font-medium text-foreground">Profit</td>
+                                                <td className={`text-right pt-1 font-medium ${expectedProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                    {formatGil(expectedProfit)}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })()}
+                </div>
             </TableCell>
         </TableRow>
     );
