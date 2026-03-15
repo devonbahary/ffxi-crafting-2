@@ -24,7 +24,7 @@ const App = () => (
     <BrowserRouter>
         <Nav />
         <Routes>
-            <Route path="/" element={<Navigate to="/items" replace />} />
+            <Route path="/" element={<Navigate to="/synthesis" replace />} />
             <Route path="/crafts" element={<CraftsPage />} />
             <Route path="/items" element={<ItemsPage />} />
             <Route path="/synthesis" element={<SynthesisPage />} />
