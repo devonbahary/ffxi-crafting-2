@@ -26,7 +26,7 @@
         "baseUrl": ".",
         "paths": {
             "@/*": ["./src/*"],
-            "@ffxi-crafting/api": ["../api/src/index.ts"],
+            "@ffxi-crafting/api": ["../api/src/client.ts"],
             "@ffxi-crafting/db": ["../db/src/index.ts"]
         }
     },
