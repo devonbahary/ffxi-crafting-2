@@ -768,9 +768,7 @@ export const getProfitableSyntheses = async ({
                 if (stackQualifies && expectedStackProfit !== null)
                     candidates.push(expectedStackProfit);
                 sortValue =
-                    candidates.length > 0
-                        ? Math.max(...candidates)
-                        : expectedUnitProfitAsSingle;
+                    candidates.length > 0 ? Math.max(...candidates) : expectedUnitProfitAsSingle;
             } else {
                 sortValue = expectedUnitProfitAsSingle;
             }

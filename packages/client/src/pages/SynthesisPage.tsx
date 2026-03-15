@@ -277,12 +277,12 @@ const ExpandedRow = ({
                                             value={ing.vendorPerUnit}
                                             isCheapest={ing.priceSource === 'vendor'}
                                         />
-                                        <td className="text-right font-medium">{formatGil(ing.totalCost)}</td>
+                                        <td className="text-right">{formatGil(ing.totalCost)}</td>
                                     </tr>
                                 ))}
-                                <tr className="border-t text-muted-foreground">
-                                    <td colSpan={6} className="pr-4 pt-1">Total cost</td>
-                                    <td className="text-right pt-1">{formatGil(totalCost)}</td>
+                                <tr className="border-t">
+                                    <td colSpan={6} className="text-muted-foreground pr-4 pt-1">Total cost</td>
+                                    <td className="text-right pt-1 font-medium">{formatGil(totalCost)}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -300,19 +300,92 @@ const ExpandedRow = ({
                         </div>
                     )}
                     {showChance && (() => {
-                            const tierContribs: { label: string; revenue: number; prob: number }[] = [
-                                { label: 'NQ', revenue: nqRevenue, prob: probs.NQ },
-                                ...synthesis.hqYields.map((tier, i) => ({
-                                    label: tier.tier,
-                                    revenue: tierRevenueSeq[i + 1],
-                                    prob: probs[tier.tier],
-                                })),
-                            ];
-                            const expectedRevenue = tierContribs.reduce((sum, t) => sum + t.revenue * t.prob, 0);
-                            const expectedProfit = Math.round(expectedRevenue - totalCost);
+                            const nqQty = nqYield.quantity;
+
+                            // Per-tier revenues using single prices, with cascade fallback for missing HQ tiers
+                            const hq1Yield = synthesis.hqYields.find((t) => t.tier === 'HQ1');
+                            const hq2Yield = synthesis.hqYields.find((t) => t.tier === 'HQ2');
+                            const hq3Yield = synthesis.hqYields.find((t) => t.tier === 'HQ3');
+                            const tierSingleRev = (tier: typeof hq1Yield) =>
+                                tier
+                                    ? tier.items.reduce((sum, item) => sum + (item.auctionPrice ?? 0) * item.quantity, 0)
+                                    : null;
+                            const nqSingleRev = nqYield.auctionPrice !== null ? nqYield.auctionPrice * nqQty : 0;
+                            const effHq1Single = tierSingleRev(hq1Yield) ?? nqSingleRev;
+                            const effHq2Single = tierSingleRev(hq2Yield) ?? effHq1Single;
+                            const effHq3Single = tierSingleRev(hq3Yield) ?? effHq2Single;
+                            const tierSingleRevenues = [nqSingleRev, effHq1Single, effHq2Single, effHq3Single];
+
+                            // Same with stack prices
+                            const hasStackPrices =
+                                nqYield.auctionStackPrice !== null ||
+                                synthesis.hqYields.some((tier) =>
+                                    tier.items.some((item) => item.auctionStackPrice !== null),
+                                );
+                            const tierStackRev = (tier: typeof hq1Yield) =>
+                                tier
+                                    ? tier.items.reduce(
+                                          (sum, item) =>
+                                              sum +
+                                              (item.auctionStackPrice !== null
+                                                  ? Math.round(item.auctionStackPrice / item.stackSize) * item.quantity
+                                                  : 0),
+                                          0,
+                                      )
+                                    : null;
+                            const nqStackRev =
+                                nqYield.auctionStackPrice !== null
+                                    ? Math.round(nqYield.auctionStackPrice / nqYield.stackSize) * nqQty
+                                    : 0;
+                            const tierStackRevenues = hasStackPrices
+                                ? (() => {
+                                      const effHq1Stack = tierStackRev(hq1Yield) ?? nqStackRev;
+                                      const effHq2Stack = tierStackRev(hq2Yield) ?? effHq1Stack;
+                                      const effHq3Stack = tierStackRev(hq3Yield) ?? effHq2Stack;
+                                      return [nqStackRev, effHq1Stack, effHq2Stack, effHq3Stack];
+                                  })()
+                                : null;
+
+                            // Cascade-resolve each HQ tier to the nearest lower existing tier,
+                            // then accumulate probabilities into the tier they resolve to.
+                            const hasHq1 = !!hq1Yield;
+                            const hasHq2 = !!hq2Yield;
+                            const hasHq3 = !!hq3Yield;
+                            const resolveHq1 = hasHq1 ? 'HQ1' : 'NQ';
+                            const resolveHq2 = hasHq2 ? 'HQ2' : resolveHq1;
+                            const resolveHq3 = hasHq3 ? 'HQ3' : resolveHq2;
+                            const effectiveProbs: Record<string, number> = {
+                                NQ: probs.NQ,
+                                HQ1: 0,
+                                HQ2: 0,
+                                HQ3: 0,
+                            };
+                            effectiveProbs[resolveHq1] += probs.HQ1;
+                            effectiveProbs[resolveHq2] += probs.HQ2;
+                            effectiveProbs[resolveHq3] += probs.HQ3;
+
+                            const allProbs = [probs.NQ, probs.HQ1, probs.HQ2, probs.HQ3];
+                            const expectedSingleRevenue = tierSingleRevenues.reduce(
+                                (sum, rev, i) => sum + rev * allProbs[i],
+                                0,
+                            );
+                            const expectedStackRevenue = tierStackRevenues
+                                ? tierStackRevenues.reduce((sum, rev, i) => sum + rev * allProbs[i], 0)
+                                : null;
+                            const useStack =
+                                expectedStackRevenue !== null && expectedStackRevenue > expectedSingleRevenue;
+                            const tierRevenues = useStack ? tierStackRevenues! : tierSingleRevenues;
+                            const expectedRevenue = useStack ? expectedStackRevenue! : expectedSingleRevenue;
+                            const tierContribs = [
+                                { label: 'NQ', revenue: tierRevenues[0], prob: effectiveProbs.NQ },
+                                ...(hasHq1 ? [{ label: 'HQ1', revenue: tierRevenues[1], prob: effectiveProbs.HQ1 }] : []),
+                                ...(hasHq2 ? [{ label: 'HQ2', revenue: tierRevenues[2], prob: effectiveProbs.HQ2 }] : []),
+                                ...(hasHq3 ? [{ label: 'HQ3', revenue: tierRevenues[3], prob: effectiveProbs.HQ3 }] : []),
+                            ].filter((t) => t.prob > 0);
+                            const expectedProfit = Math.round((expectedRevenue - totalCost) / nqQty);
                             return (
-                                <div className="text-sm">
-                                    <p className="text-muted-foreground font-medium mb-1">Expected Profit</p>
+                                <div>
+                                    <p className="text-sm font-semibold mb-2">Expected Profit</p>
                                     <table className="text-xs text-muted-foreground">
                                         <tbody>
                                             {tierContribs.map((t) => (
@@ -333,8 +406,16 @@ const ExpandedRow = ({
                                                 <td colSpan={5} className="pr-2">− Cost</td>
                                                 <td className="text-right">{formatGil(totalCost)}</td>
                                             </tr>
+                                            {nqQty > 1 && (
+                                                <tr>
+                                                    <td colSpan={5} className="pr-2">÷ Quantity</td>
+                                                    <td className="text-right">{nqQty}</td>
+                                                </tr>
+                                            )}
                                             <tr className="border-t">
-                                                <td colSpan={5} className="pr-2 pt-1 font-medium text-foreground">Profit</td>
+                                                <td colSpan={5} className="pr-2 pt-1 font-medium text-foreground">
+                                                    {nqQty > 1 ? 'Profit / item' : 'Profit'}
+                                                </td>
                                                 <td className={`text-right pt-1 font-medium ${expectedProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                                     {formatGil(expectedProfit)}
                                                 </td>
