@@ -754,17 +754,26 @@ export const getProfitableSyntheses = async ({
                         : row.expectedStackProfitT3;
             const expectedStackProfit = stackProfitT ?? null;
 
-            const sortValue =
-                sortBy === 'daily'
-                    ? expectedUnitProfitAsSingle * (row.salesPerDay ?? 0)
-                    : sortBy === 'stack-total'
-                      ? (expectedStackProfit ?? 0)
-                      : sortBy === 'ah-slot'
-                        ? Math.max(
-                              expectedUnitProfitAsSingle,
-                              expectedStackProfit ?? expectedUnitProfitAsSingle,
-                          )
+            let sortValue: number;
+            if (sortBy === 'daily') {
+                sortValue = expectedUnitProfitAsSingle * (row.salesPerDay ?? 0);
+            } else if (sortBy === 'stack-total') {
+                sortValue = expectedStackProfit ?? 0;
+            } else if (sortBy === 'ah-slot') {
+                const singleQualifies = minRate === undefined || (row.salesPerDay ?? 0) >= minRate;
+                const stackQualifies =
+                    minRate === undefined || (row.stackSalesPerDay ?? 0) >= minRate;
+                const candidates: number[] = [];
+                if (singleQualifies) candidates.push(expectedUnitProfitAsSingle);
+                if (stackQualifies && expectedStackProfit !== null)
+                    candidates.push(expectedStackProfit);
+                sortValue =
+                    candidates.length > 0
+                        ? Math.max(...candidates)
                         : expectedUnitProfitAsSingle;
+            } else {
+                sortValue = expectedUnitProfitAsSingle;
+            }
 
             withExpected.push({
                 sid: row.synthesisId,
@@ -850,7 +859,12 @@ export const getProfitableSyntheses = async ({
                   ? desc(
                         sql`GREATEST(${synthesisProfits.profitPerDayAsSingle}, COALESCE(${synthesisProfits.profitPerDayAsStack}, ${synthesisProfits.profitPerDayAsSingle}))`,
                     )
-                  : sql`GREATEST(${synthesisProfits.unitProfitAsSingle}, COALESCE(${synthesisProfits.stackProfit}, ${synthesisProfits.unitProfitAsSingle})) DESC NULLS LAST`;
+                  : minRate !== undefined
+                    ? sql`GREATEST(
+                            CASE WHEN ${synthesisProfits.salesPerDay} >= ${minRate} THEN ${synthesisProfits.unitProfitAsSingle} END,
+                            CASE WHEN ${synthesisProfits.stackSalesPerDay} >= ${minRate} THEN ${synthesisProfits.stackProfit} END
+                          ) DESC NULLS LAST`
+                    : sql`GREATEST(${synthesisProfits.unitProfitAsSingle}, COALESCE(${synthesisProfits.stackProfit}, ${synthesisProfits.unitProfitAsSingle})) DESC NULLS LAST`;
 
     const nameIdFilter = nameFilteredIds
         ? inArray(synthesisProfits.synthesisId, [...nameFilteredIds])
