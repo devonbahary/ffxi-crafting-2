@@ -451,7 +451,7 @@ export const getProfitableSyntheses = async ({
             .selectDistinct({ synthesisId: synthesisYieldItems.synthesisId })
             .from(synthesisYieldItems)
             .innerJoin(items, eq(synthesisYieldItems.itemId, items.id))
-            .where(and(eq(synthesisYieldItems.tier, 'NQ'), ilike(items.name, `%${yieldName}%`)));
+            .where(ilike(items.name, `%${yieldName}%`));
         if (rows.length === 0) return { syntheses: [], total: 0 };
         nameFilteredIds = new Set(rows.map((r) => r.synthesisId));
     }

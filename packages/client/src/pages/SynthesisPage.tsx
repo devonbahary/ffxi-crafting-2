@@ -578,7 +578,7 @@ const SynthesisPage = () => {
                         page: String(page),
                         perPage: String(PER_PAGE),
                         ...(yieldName ? { yieldName } : {}),
-                        ...(minRate && minRate !== 'any' ? { minRate: minRate as 'very-fast' | 'fast' | 'average' | 'slow' | 'very-slow' } : {}),
+                        ...(!yieldName && minRate && minRate !== 'any' ? { minRate: minRate as 'very-fast' | 'fast' | 'average' | 'slow' | 'very-slow' } : {}),
                         ...apiSkills,
                     },
                 });
@@ -651,7 +651,7 @@ const SynthesisPage = () => {
                     onChange={(e) => setYieldName(e.target.value)}
                     className="rounded-md border px-3 py-1.5 text-sm w-52"
                 />
-                <Select value={minRate} onValueChange={setMinRate}>
+                <Select value={minRate} onValueChange={setMinRate} disabled={!!yieldName}>
                     <SelectTrigger className="w-36">
                         <SelectValue placeholder="Any rate" />
                     </SelectTrigger>
