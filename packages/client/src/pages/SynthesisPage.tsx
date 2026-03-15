@@ -508,23 +508,20 @@ const SynthesisPage = () => {
                         ))}
                     </SelectContent>
                 </Select>
-                <label className="flex items-center gap-2 text-sm">
-                    <input
-                        type="checkbox"
-                        checked={skillsEnabled}
-                        onChange={(e) => setSkillsEnabled(e.target.checked)}
-                    />
-                    Crafting Skills
-                </label>
-                {data && (
-                    <span className="text-sm text-muted-foreground">{data.total} syntheses</span>
-                )}
             </div>
 
             <details className="mb-4">
                 <summary className="cursor-pointer text-sm text-muted-foreground select-none">
                     Crafting Skills{' '}
                     {Object.keys(skillValues).length > 0 && (skillsEnabled ? '(active)' : '(saved)')}
+                    <label className="inline-flex items-center gap-2 ml-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                            type="checkbox"
+                            checked={skillsEnabled}
+                            onChange={(e) => setSkillsEnabled(e.target.checked)}
+                        />
+                        Include Crafting Skills in Filter
+                    </label>
                 </summary>
                 <div className="mt-2">
                     <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm sm:grid-cols-4">
@@ -545,6 +542,12 @@ const SynthesisPage = () => {
                     </div>
                 </div>
             </details>
+
+            {data && (
+                <p className="mb-4 text-sm text-muted-foreground">
+                    {data.total} synthes{data.total === 1 ? 'is' : 'es'} found{hasSkills ? ' and profits adjusted matching your Craft Skills' : ' matching filters'}
+                </p>
+            )}
 
             {loading && <p className="text-muted-foreground">Loading...</p>}
             {error && <p className="text-destructive">Error: {error}</p>}
@@ -597,9 +600,6 @@ const SynthesisPage = () => {
                                                 <span className="text-muted-foreground text-xs">
                                                     {s.mainCraft.craftLevel}
                                                 </span>
-                                                {hqRate !== null && probs !== null && (
-                                                    <HqTierBadge tier={probs.tier} hqRate={hqRate} />
-                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -612,10 +612,15 @@ const SynthesisPage = () => {
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <TableCell className="cursor-default">
-                                                    {s.nqYield.name}
-                                                    {s.nqYield.quantity > 1
-                                                        ? ` ×${s.nqYield.quantity}`
-                                                        : ''}
+                                                    <span className="flex items-center gap-2">
+                                                        <span>
+                                                            {s.nqYield.name}
+                                                            {s.nqYield.quantity > 1 ? ` ×${s.nqYield.quantity}` : ''}
+                                                        </span>
+                                                        {hqRate !== null && probs !== null && (
+                                                            <HqTierBadge tier={probs.tier} hqRate={hqRate} />
+                                                        )}
+                                                    </span>
                                                 </TableCell>
                                             </TooltipTrigger>
                                                 <TooltipContent side="right">
