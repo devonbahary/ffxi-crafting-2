@@ -375,7 +375,7 @@ const SynthesisPage = () => {
     const sortBy = (searchParams.get('sortBy') ?? 'single') as 'single' | 'stack' | 'ah-slot' | 'daily' | 'stack-total';
     const page = parseInt(searchParams.get('page') ?? '1', 10);
     const yieldName = searchParams.get('yieldName') ?? '';
-    const minRate = searchParams.get('minRate') ?? '';
+    const minRate = searchParams.get('minRate') ?? 'average';
 
     const [skillValues, setSkillValues] = useState<Partial<Record<string, number>>>(
         loadSkillsFromStorage,
@@ -423,7 +423,7 @@ const SynthesisPage = () => {
                         page: String(page),
                         perPage: String(PER_PAGE),
                         ...(yieldName ? { yieldName } : {}),
-                        ...(minRate ? { minRate: minRate as 'very-fast' | 'fast' | 'average' | 'slow' | 'very-slow' } : {}),
+                        ...(minRate && minRate !== 'any' ? { minRate: minRate as 'very-fast' | 'fast' | 'average' | 'slow' | 'very-slow' } : {}),
                         ...apiSkills,
                     },
                 });
@@ -456,11 +456,7 @@ const SynthesisPage = () => {
     };
     const setMinRate = (value: string) => {
         const next = new URLSearchParams(searchParams);
-        if (value && value !== 'any') {
-            next.set('minRate', value);
-        } else {
-            next.delete('minRate');
-        }
+        next.set('minRate', value);
         next.set('page', '1');
         setSearchParams(next);
     };
@@ -500,7 +496,7 @@ const SynthesisPage = () => {
                     onChange={(e) => setYieldName(e.target.value)}
                     className="rounded-md border px-3 py-1.5 text-sm w-52"
                 />
-                <Select value={minRate || 'any'} onValueChange={setMinRate}>
+                <Select value={minRate} onValueChange={setMinRate}>
                     <SelectTrigger className="w-36">
                         <SelectValue placeholder="Any rate" />
                     </SelectTrigger>
