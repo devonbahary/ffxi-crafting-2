@@ -11,11 +11,11 @@ const Nav = () => (
         <NavLink to="/items" className={navClass}>
             Items
         </NavLink>
-        <NavLink to="/synthesis" className={navClass}>
-            Synthesis
-        </NavLink>
         <NavLink to="/crafts" className={navClass}>
             Crafts
+        </NavLink>
+        <NavLink to="/synthesis" className={navClass}>
+            Synthesis
         </NavLink>
     </nav>
 );
